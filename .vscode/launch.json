@@ -126,6 +126,21 @@
         "PYTHONPATH": "${workspaceFolder}/src"
       },
       "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Market screener (biggest holder gainers)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.bulk",
+      "args": [
+        "--screen"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
     }
   ],
   "inputs": [
