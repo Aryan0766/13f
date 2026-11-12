@@ -1,0 +1,285 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "13F: Pick filer",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "args": [
+        "--filer",
+        "${input:pickFiler}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Run ALL filers",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "args": [
+        "--all"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Other ticker or CIK",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "args": [
+        "--filer",
+        "${input:filer}",
+        "--quarters",
+        "${input:quarters}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Refresh tracker only",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "args": [
+        "--tracker-only"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F Bulk: Update data (last year)",
+      "args": [
+        "--bulk-update"
+      ],
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F Bulk: Look up a stock",
+      "args": [
+        "--lookup",
+        "${input:stock}"
+      ],
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Stock lookup (funds holding)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.bulk",
+      "args": [
+        "--lookup",
+        "${input:lookupTicker}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Build bulk index",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.bulk",
+      "args": [
+        "--build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "pickFiler",
+      "type": "pickString",
+      "description": "Which filer?",
+      "options": [
+        {
+          "label": "BlackRock, Inc.",
+          "value": "0002012383"
+        },
+        {
+          "label": "Vanguard Capital Management LLC",
+          "value": "0002100119"
+        },
+        {
+          "label": "State Street Corp",
+          "value": "0000093751"
+        },
+        {
+          "label": "Vanguard Portfolio Management LLC",
+          "value": "0002100121"
+        },
+        {
+          "label": "FMR LLC (Fidelity)",
+          "value": "0000315066"
+        },
+        {
+          "label": "Geode Capital Management, LLC",
+          "value": "0001214717"
+        },
+        {
+          "label": "Morgan Stanley",
+          "value": "0000895421"
+        },
+        {
+          "label": "JPMorgan Chase & Co",
+          "value": "0000019617"
+        },
+        {
+          "label": "Bank of America Corp",
+          "value": "0000070858"
+        },
+        {
+          "label": "Norges Bank (Central Bank of Norway)",
+          "value": "0001166708"
+        },
+        {
+          "label": "UBS Group AG",
+          "value": "0001422780"
+        },
+        {
+          "label": "Goldman Sachs Group Inc",
+          "value": "0000886982"
+        },
+        {
+          "label": "Northern Trust Corp",
+          "value": "0000073124"
+        },
+        {
+          "label": "Capital Research Global Investors",
+          "value": "0001422848"
+        },
+        {
+          "label": "Charles Schwab Investment Management",
+          "value": "0000884546"
+        },
+        {
+          "label": "Wellington Management Group LLP",
+          "value": "0000902219"
+        },
+        {
+          "label": "Bank of New York Mellon Corp",
+          "value": "0001390777"
+        },
+        {
+          "label": "Dimensional Fund Advisors LP",
+          "value": "0000354204"
+        },
+        {
+          "label": "Royal Bank of Canada",
+          "value": "0001000275"
+        },
+        {
+          "label": "Wells Fargo & Company",
+          "value": "0000072971"
+        },
+        {
+          "label": "Warren Buffett - Berkshire Hathaway Inc.",
+          "value": "0001067983"
+        },
+        {
+          "label": "Ken Griffin - Citadel Advisors LLC",
+          "value": "0001423053"
+        },
+        {
+          "label": "Israel Englander - Millennium Management LLC",
+          "value": "0001166559"
+        },
+        {
+          "label": "Jim Simons (legacy) - Renaissance Technologies LLC",
+          "value": "0001037389"
+        },
+        {
+          "label": "Ray Dalio - Bridgewater Associates, LP",
+          "value": "0001350616"
+        },
+        {
+          "label": "Michael Burry - Scion Asset Management, LLC",
+          "value": "0001649339"
+        },
+        {
+          "label": "David Tepper - Appaloosa LP",
+          "value": "0001006434"
+        },
+        {
+          "label": "Bill Ackman - Pershing Square Capital Management",
+          "value": "0001336528"
+        },
+        {
+          "label": "Stanley Druckenmiller - Duquesne Family Office LLC",
+          "value": "0001536313"
+        },
+        {
+          "label": "Carl Icahn - Icahn Carl C",
+          "value": "0000813769"
+        }
+      ],
+      "default": "0002012383"
+    },
+    {
+      "id": "filer",
+      "type": "promptString",
+      "description": "Ticker or CIK of the 13F filer",
+      "default": "BRK-A"
+    },
+    {
+      "id": "quarters",
+      "type": "promptString",
+      "description": "How many recent quarters (1 = latest only)",
+      "default": "1"
+    },
+    {
+      "id": "stock",
+      "type": "promptString",
+      "description": "Ticker, company name or CUSIP (e.g. NVDA)",
+      "default": "NVDA"
+    },
+    {
+      "id": "lookupTicker",
+      "type": "promptString",
+      "description": "Ticker (e.g. NVDA) or 9-character CUSIP",
+      "default": "NVDA"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "13F: Run ALL filers",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "thirteenf_processor",
+        "--all"
+      ],
+      "options": {
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}\\src"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Install requirements",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements-dev.txt"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint (ruff)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "src"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Open output folder",
+      "type": "shell",
+      "command": "explorer",
+      "args": [
+        "${workspaceFolder}\\data\\output"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

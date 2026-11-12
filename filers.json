@@ -1,0 +1,162 @@
+[
+  {
+    "name": "BlackRock, Inc.",
+    "cik": "0002012383",
+    "group": "Institution"
+  },
+  {
+    "name": "Vanguard Capital Management LLC",
+    "cik": "0002100119",
+    "group": "Institution"
+  },
+  {
+    "name": "State Street Corp",
+    "cik": "0000093751",
+    "group": "Institution"
+  },
+  {
+    "name": "Vanguard Portfolio Management LLC",
+    "cik": "0002100121",
+    "group": "Institution"
+  },
+  {
+    "name": "FMR LLC (Fidelity)",
+    "cik": "0000315066",
+    "group": "Institution"
+  },
+  {
+    "name": "Geode Capital Management, LLC",
+    "cik": "0001214717",
+    "group": "Institution"
+  },
+  {
+    "name": "Morgan Stanley",
+    "cik": "0000895421",
+    "group": "Institution"
+  },
+  {
+    "name": "JPMorgan Chase & Co",
+    "cik": "0000019617",
+    "group": "Institution"
+  },
+  {
+    "name": "Bank of America Corp",
+    "cik": "0000070858",
+    "group": "Institution"
+  },
+  {
+    "name": "Norges Bank (Central Bank of Norway)",
+    "cik": "0001166708",
+    "group": "Institution"
+  },
+  {
+    "name": "UBS Group AG",
+    "cik": "0001422780",
+    "group": "Institution"
+  },
+  {
+    "name": "Goldman Sachs Group Inc",
+    "cik": "0000886982",
+    "group": "Institution"
+  },
+  {
+    "name": "Northern Trust Corp",
+    "cik": "0000073124",
+    "group": "Institution"
+  },
+  {
+    "name": "Capital Research Global Investors",
+    "cik": "0001422848",
+    "group": "Institution"
+  },
+  {
+    "name": "Charles Schwab Investment Management",
+    "cik": "0000884546",
+    "group": "Institution"
+  },
+  {
+    "name": "Wellington Management Group LLP",
+    "cik": "0000902219",
+    "group": "Institution"
+  },
+  {
+    "name": "Bank of New York Mellon Corp",
+    "cik": "0001390777",
+    "group": "Institution"
+  },
+  {
+    "name": "Dimensional Fund Advisors LP",
+    "cik": "0000354204",
+    "group": "Institution"
+  },
+  {
+    "name": "Royal Bank of Canada",
+    "cik": "0001000275",
+    "group": "Institution"
+  },
+  {
+    "name": "Wells Fargo & Company",
+    "cik": "0000072971",
+    "group": "Institution"
+  },
+  {
+    "name": "Berkshire Hathaway Inc.",
+    "cik": "0001067983",
+    "group": "Investor",
+    "person": "Warren Buffett"
+  },
+  {
+    "name": "Citadel Advisors LLC",
+    "cik": "0001423053",
+    "group": "Investor",
+    "person": "Ken Griffin"
+  },
+  {
+    "name": "Millennium Management LLC",
+    "cik": "0001166559",
+    "group": "Investor",
+    "person": "Israel Englander"
+  },
+  {
+    "name": "Renaissance Technologies LLC",
+    "cik": "0001037389",
+    "group": "Investor",
+    "person": "Jim Simons (legacy)"
+  },
+  {
+    "name": "Bridgewater Associates, LP",
+    "cik": "0001350616",
+    "group": "Investor",
+    "person": "Ray Dalio"
+  },
+  {
+    "name": "Scion Asset Management, LLC",
+    "cik": "0001649339",
+    "group": "Investor",
+    "person": "Michael Burry"
+  },
+  {
+    "name": "Appaloosa LP",
+    "cik": "0001006434",
+    "group": "Investor",
+    "person": "David Tepper"
+  },
+  {
+    "name": "Pershing Square Capital Management",
+    "cik": "0001336528",
+    "group": "Investor",
+    "person": "Bill Ackman"
+  },
+  {
+    "name": "Duquesne Family Office LLC",
+    "cik": "0001536313",
+    "group": "Investor",
+    "person": "Stanley Druckenmiller"
+  },
+  {
+    "name": "Icahn Carl C",
+    "cik": "0000813769",
+    "group": "Investor",
+    "person": "Carl Icahn"
+  }
+]
