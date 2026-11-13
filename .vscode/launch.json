@@ -97,6 +97,21 @@
       "console": "integratedTerminal"
     },
     {
+      "name": "13F: Build fund (N-PORT) index",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.nport",
+      "args": [
+        "--build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
       "name": "13F: Market screener (biggest holder gainers)",
       "type": "debugpy",
       "request": "launch",

@@ -305,11 +305,17 @@ def lookup(query: str) -> int:
     table = _lookup_table(holders, cusips)
     issuer = names.get(cusips[0], "")
     streak, direction = _streak(table)
+    totals = holders.groupby("period")["CIK"].nunique()
+    share = (totals / totals.max()).to_dict()  # how much of a full quarter has filed
 
     lines = [f"\n{query.upper()}  {issuer}   (CUSIP {', '.join(cusips)})\n"]
-    lines.append(f"{'Quarter':<12}{'Funds':>8}{'Change':>9}{'Added':>8}{'Dropped':>9}")
+    lines.append(f"{'Quarter':<12}{'Filers':>8}{'Change':>9}{'Added':>8}{'Dropped':>9}")
     for r in table.itertuples():
-        mark = "" if r.Complete else "  * partial"
+        mark = (
+            ""
+            if r.Complete
+            else f"  DATA INCOMPLETE ({share[r.Quarter]:.0%} of filers in)"
+        )
         if r.Quarter in live_periods:
             mark += "  (live from EDGAR)"
         lines.append(
@@ -320,13 +326,18 @@ def lookup(query: str) -> int:
     if not done.empty:
         last = done.iloc[-1]
         lines.append(
-            f"\nLatest complete quarter ({last['Quarter']}): {int(last['Funds']):,} funds held it."
+            f"\nLatest complete quarter ({last['Quarter']}): {int(last['Funds']):,} 13F filers held it."
         )
         if streak >= 2:
-            lines.append(f"Fund count has gone {direction} {streak} quarters in a row.")
+            lines.append(
+                f"Filer count has gone {direction} {streak} quarters in a row."
+            )
     if not table["Complete"].all():
+        late = table.loc[~table["Complete"], "Quarter"].tolist()
         lines.append(
-            "* partial = filings for that quarter are still missing from your ZIPs, so its count is low."
+            f"\n*** DATA INCOMPLETE for {', '.join(late)}: filings are still coming in "
+            "(or are missing from your ZIPs), so its fund count is too low. "
+            "Do not compare it with earlier quarters yet. ***"
         )
     if live_periods:
         lines.append(
@@ -334,8 +345,13 @@ def lookup(query: str) -> int:
             "data set."
         )
     lines.append(
-        "Counts are 13F filers (institutional managers), not individual mutual funds."
+        "Counts above are 13F filers (institutional managers: Fidelity counts once), "
+        "not individual funds."
     )
+    from . import nport  # fund-level (N-PORT) block, if the fund index has been built
+
+    fund = nport.fund_table(cusips)
+    lines.extend(nport.format_block(fund))
     print("\n".join(lines))
 
     LOOKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -344,18 +360,29 @@ def lookup(query: str) -> int:
         ", ".join(
             x
             for x in (
-                "" if r.Complete else "partial",
+                ""
+                if r.Complete
+                else f"DATA INCOMPLETE ({share[r.Quarter]:.0%} of filers in)",
                 "live (EDGAR)" if r.Quarter in live_periods else "",
             )
             if x
         )
         for r in table.itertuples()
     ]
-    export = table.drop(columns=["Complete"]).assign(Note=notes)
+    export = (
+        table.drop(columns=["Complete"])
+        .rename(columns={"Funds": "Filers"})
+        .assign(Note=notes)
+    )
     try:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
-            export.to_excel(xw, sheet_name="Funds holding", index=False)
-            _autosize(xw.sheets["Funds holding"])
+            export.to_excel(xw, sheet_name="13F filers", index=False)
+            _autosize(xw.sheets["13F filers"])
+            if fund is not None:
+                nport.excel_table(fund).to_excel(
+                    xw, sheet_name="Funds (N-PORT)", index=False
+                )
+                _autosize(xw.sheets["Funds (N-PORT)"])
         print(f"Saved: {out.relative_to(PROJECT_ROOT)}")
     except PermissionError:
         print(f"(Could not save {out.name}; close it in Excel and run again.)")
