@@ -66,37 +66,6 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "13F Bulk: Update data (last year)",
-      "args": [
-        "--bulk-update"
-      ],
-      "type": "debugpy",
-      "request": "launch",
-      "module": "thirteenf_processor",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      },
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "13F Bulk: Look up a stock",
-      "args": [
-        "--lookup",
-        "${input:stock}"
-      ],
-      "type": "debugpy",
-      "request": "launch",
-      "module": "thirteenf_processor",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      },
-      "console": "integratedTerminal"
-    },
-    {
       "name": "13F: Stock lookup (funds holding)",
       "type": "debugpy",
       "request": "launch",
@@ -134,6 +103,52 @@
       "module": "thirteenf_processor.bulk",
       "args": [
         "--screen"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Market screener EARLY look (quarter not complete)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.bulk",
+      "args": [
+        "--screen",
+        "--early"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Live fetch (newest quarter from EDGAR)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.live",
+      "args": [
+        "--fetch"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "13F: Live vs SEC data set check",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.live",
+      "args": [
+        "--compare"
       ],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",

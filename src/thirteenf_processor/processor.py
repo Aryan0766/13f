@@ -509,26 +509,6 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    if args.lookup:
-        from .bulk import format_lookup, lookup
-
-        print(format_lookup(lookup(args.lookup)))
-        return 0
-    if args.bulk_update:
-        from .bulk import update_bulk
-
-        configure_environment()
-        update_bulk(os.environ["EDGAR_IDENTITY"], max(1, args.sets))
-        return 0
-    if args.bulk_build:
-        from .bulk import build_index
-
-        return build_index()
-    if args.lookup:
-        from .bulk import lookup
-
-        return lookup(args.lookup)
-
     if args.tracker_only:
         write_tracker(load_state())
         log.info("Tracker refreshed -> %s", TRACKER_FILE.relative_to(PROJECT_ROOT))

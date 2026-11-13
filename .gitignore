@@ -7,3 +7,6 @@ data/edgar_cache/*
 data/output/*
 !data/edgar_cache/.gitkeep
 !data/output/.gitkeep
+data/sec_bulk/*
+data/index/*
+data/live/*

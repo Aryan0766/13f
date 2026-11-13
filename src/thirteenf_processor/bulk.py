@@ -277,11 +277,22 @@ def _fmt(value, signed: bool = False) -> str:
     return f"{int(value):+,}" if signed else f"{int(value):,}"
 
 
-def lookup(query: str) -> int:
+def _load_holders() -> tuple[pd.DataFrame, set[str]]:
+    """The bulk index, plus any live EDGAR quarter the SEC data set does not have yet."""
     path = INDEX_DIR / "holders.parquet"
     if not path.exists():
         raise SystemExit("No index yet. Run '13F: Build bulk index' first.")
     holders = pd.read_parquet(path)
+    from .live import load_live_holders  # imported here to keep the modules independent
+
+    live = load_live_holders(set(holders["period"].unique()))
+    if live is None or live.empty:
+        return holders, set()
+    return pd.concat([holders, live], ignore_index=True), set(live["period"].unique())
+
+
+def lookup(query: str) -> int:
+    holders, live_periods = _load_holders()
     names = pd.read_parquet(INDEX_DIR / "names.parquet").set_index("CUSIP")["Issuer"]
 
     cusips = _resolve(query, set(holders["CUSIP"].unique()))
@@ -299,6 +310,8 @@ def lookup(query: str) -> int:
     lines.append(f"{'Quarter':<12}{'Funds':>8}{'Change':>9}{'Added':>8}{'Dropped':>9}")
     for r in table.itertuples():
         mark = "" if r.Complete else "  * partial"
+        if r.Quarter in live_periods:
+            mark += "  (live from EDGAR)"
         lines.append(
             f"{r.Quarter:<12}{_fmt(r.Funds):>8}{_fmt(r.Change, True):>9}"
             f"{_fmt(r.Added):>8}{_fmt(r.Dropped):>9}{mark}"
@@ -315,6 +328,11 @@ def lookup(query: str) -> int:
         lines.append(
             "* partial = filings for that quarter are still missing from your ZIPs, so its count is low."
         )
+    if live_periods:
+        lines.append(
+            "(live from EDGAR) = fetched straight from EDGAR and not yet confirmed by the SEC "
+            "data set."
+        )
     lines.append(
         "Counts are 13F filers (institutional managers), not individual mutual funds."
     )
@@ -322,9 +340,18 @@ def lookup(query: str) -> int:
 
     LOOKUP_DIR.mkdir(parents=True, exist_ok=True)
     out = LOOKUP_DIR / f"{_norm(query)}_funds.xlsx"
-    export = table.drop(columns=["Complete"]).assign(
-        Note=table["Complete"].map({True: "", False: "partial"})
-    )
+    notes = [
+        ", ".join(
+            x
+            for x in (
+                "" if r.Complete else "partial",
+                "live (EDGAR)" if r.Quarter in live_periods else "",
+            )
+            if x
+        )
+        for r in table.itertuples()
+    ]
+    export = table.drop(columns=["Complete"]).assign(Note=notes)
     try:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
             export.to_excel(xw, sheet_name="Funds holding", index=False)
@@ -379,6 +406,35 @@ def _screen_periods(holders: pd.DataFrame) -> tuple[str, str, list[str]]:
     return latest, periods[pos - 1], run
 
 
+def _early_periods(
+    holders: pd.DataFrame,
+) -> tuple[str, str, list[str], set[int], float] | None:
+    """For an unfinished newest quarter: (newest, quarter before, complete run before it,
+    filers that filed for both, share of the earlier quarter's filers they represent).
+    Returns None when the newest quarter is already complete (use the normal screen)."""
+    totals = holders.groupby("period")["CIK"].nunique().sort_index()
+    complete = totals / totals.max() >= PARTIAL_BELOW
+    periods = list(totals.index)
+    latest = periods[-1]
+    if complete[latest]:
+        return None
+    if len(periods) < 2 or not complete[periods[-2]]:
+        raise SystemExit(
+            f"The early look needs a complete quarter before {latest}, and "
+            f"{periods[-2] if len(periods) > 1 else 'none'} is missing or partial. "
+            "Add the missing ZIP and run 'Build bulk index'."
+        )
+    prev = periods[-2]
+    run, i = [], len(periods) - 2
+    while i >= 0 and complete[periods[i]]:
+        run.insert(0, periods[i])
+        i -= 1
+    filed_latest = set(holders.loc[holders["period"] == latest, "CIK"])
+    filed_prev = set(holders.loc[holders["period"] == prev, "CIK"])
+    cohort = filed_latest & filed_prev
+    return latest, prev, [*run, latest], cohort, len(cohort) / totals[prev]
+
+
 def _signed_streaks(counts: pd.DataFrame) -> pd.Series:
     """Quarters in a row the count moved the same way as its latest move (+3 = up 3, -2 = down 2)."""
     sign = np.sign(counts.diff(axis=1).iloc[:, 1:].to_numpy())
@@ -393,13 +449,23 @@ def _signed_streaks(counts: pd.DataFrame) -> pd.Series:
     return pd.Series((streak * last).astype(int), index=counts.index)
 
 
-def screen(include_funds: bool = False) -> int:
-    path = INDEX_DIR / "holders.parquet"
-    if not path.exists():
-        raise SystemExit("No index yet. Run '13F: Build bulk index' first.")
-    holders = pd.read_parquet(path)
+def screen(include_funds: bool = False, early: bool = False) -> int:
+    holders, live_periods = _load_holders()
     names = pd.read_parquet(INDEX_DIR / "names.parquet").set_index("CUSIP")["Issuer"]
-    latest, prev, run = _screen_periods(holders)
+    scale, cohort_n = 1.0, 0
+    plan = _early_periods(holders) if early else None
+    if early and plan is None:
+        print("The newest quarter is already complete, so this is the normal screen.")
+        early = False
+    if plan is not None:
+        latest, prev, run, cohort, scale = plan
+        cohort_n = len(cohort)
+        # like for like: only filers that filed for BOTH quarters, in every quarter
+        holders = holders[holders["CIK"].isin(cohort)]
+    else:
+        latest, prev, run = _screen_periods(holders)
+    min_prev = max(1, round(MIN_PREV * scale))
+    min_holders = max(1, round(MIN_HOLDERS * scale))
 
     counts = (
         holders[holders["period"].isin(run)]
@@ -430,7 +496,7 @@ def screen(include_funds: bool = False) -> int:
     )
     t = t.reset_index().rename(columns={"index": "CUSIP"})
 
-    t = t[(t["Before"] >= MIN_PREV) & (t[["Before", "Now"]].max(axis=1) >= MIN_HOLDERS)]
+    t = t[(t["Before"] >= min_prev) & (t[["Before", "Now"]].max(axis=1) >= min_holders)]
     hidden = 0
     if not include_funds:
         hidden = int((t["Type guess"] != "").sum())
@@ -446,10 +512,17 @@ def screen(include_funds: bool = False) -> int:
     )
     gainers, losers, streaks = (x.head(TOP_N) for x in (gainers, losers, streaks))
 
+    title = "EARLY LOOK holder-count screen" if early else "Holder-count screen"
     print(
-        f"\nHolder-count screen: {latest} vs {prev}   "
-        f"({len(t):,} stocks screened, {hidden:,} ETFs/funds/SPACs hidden)\n"
+        f"\n{title}: {latest} vs {prev}   "
+        f"({len(t):,} stocks screened, {hidden:,} ETFs/funds/SPACs hidden)"
     )
+    if early:
+        print(
+            f"Only the {cohort_n:,} filers that have filed for {latest} AND {prev} are counted "
+            f"({scale:.0%} of {prev}'s filers). Early filers are not a random sample."
+        )
+    print()
     show = gainers.head(25)
     print(
         f"{'Ticker':<8}{'Issuer':<32}{'Before':>8}{'Now':>8}{'Change':>8}{'%':>8}{'Streak':>8}"
@@ -465,9 +538,15 @@ def screen(include_funds: bool = False) -> int:
         "Counts are 13F filers (institutional managers), not individual mutual funds."
     )
 
+    live_note = (
+        f"Quarter(s) {', '.join(sorted(live_periods & {latest, prev}))} come from live EDGAR "
+        "fetches and are not yet confirmed by the SEC data set."
+        if live_periods & {latest, prev}
+        else ""
+    )
     note_lines = [
         f"Compares {latest} with {prev}. Counts are 13F filers holding the shares.",
-        f"Kept: at least {MIN_PREV} holders in {prev} and {MIN_HOLDERS} in one of the two quarters.",
+        f"Kept: at least {min_prev} holders in {prev} and {min_holders} in one of the two quarters.",
         "Change = Now - Before. Added / Dropped = filers that started / stopped holding it.",
         (
             "Streak = quarters in a row the count moved the same way (+ up, - down); "
@@ -482,9 +561,23 @@ def screen(include_funds: bool = False) -> int:
             "A holder count is not a buy or sell signal."
         ),
     ]
+    if early:
+        note_lines.insert(
+            1,
+            (
+                f"EARLY LOOK: {latest} is not complete yet. Only the {cohort_n:,} filers that "
+                f"filed for both {latest} and {prev} are counted in every quarter "
+                f"({scale:.0%} of {prev}'s filers), and the minimum-holder limits are scaled "
+                "down to match. Early filers are not a random sample, and the list will "
+                "change as more filings arrive."
+            ),
+        )
+    if live_note:
+        note_lines.insert(1, live_note)
+        print(f"\n{live_note}")
     notes = pd.DataFrame({"Notes": note_lines})
     SCREEN_DIR.mkdir(parents=True, exist_ok=True)
-    out = SCREEN_DIR / f"holder_screen_{latest}.xlsx"
+    out = SCREEN_DIR / f"holder_screen_{'early_' if early else ''}{latest}.xlsx"
     try:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
             for title, frame in (
@@ -519,6 +612,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="With --screen: keep ETFs, funds, SPACs, warrants and units",
     )
+    parser.add_argument(
+        "--early",
+        action="store_true",
+        help="With --screen: early look at a quarter that is not complete yet",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if args.build:
@@ -526,7 +624,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.lookup:
         return lookup(args.lookup)
     if args.screen:
-        return screen(args.include_funds)
+        return screen(args.include_funds, args.early)
     parser.error("use --build, --lookup TICKER or --screen")
 
 

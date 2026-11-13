@@ -10,6 +10,12 @@
       "source.organizeImports": "explicit"
     }
   },
-  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
-  "files.exclude": { "**/__pycache__": true, "**/.ruff_cache": true }
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/src"
+  ],
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.ruff_cache": true
+  },
+  "python.terminal.useEnvFile": true
 }
