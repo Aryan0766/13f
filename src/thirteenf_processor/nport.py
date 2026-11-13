@@ -108,7 +108,15 @@ def _filings(z: zipfile.ZipFile) -> pd.DataFrame:
     df["filed"] = _dates(df["FILING_DATE"])
     bad = df["report"].isna() | df["SERIES_ID"].isna() | df["filed"].isna()
     if bad.any():
-        log.warning("Skipping %d filings with a missing date or fund ID.", bad.sum())
+        log.warning(
+            "Skipping %d filings: %d with no fund ID, %d with no report date, %d with no "
+            "filing date. Examples of the report date text: %s",
+            bad.sum(),
+            df["SERIES_ID"].isna().sum(),
+            df["report"].isna().sum(),
+            df["filed"].isna().sum(),
+            df.loc[df["report"].isna(), "REPORT_DATE"].dropna().unique()[:3].tolist(),
+        )
     df = df[~bad].copy()
     df["month"] = df["report"].dt.strftime("%Y-%m")
     df = df.sort_values(["filed", "ACCESSION_NUMBER"])
