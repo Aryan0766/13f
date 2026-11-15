@@ -1,170 +1,170 @@
 {
   "2100119": {
     "name": "VANGUARD CAPITAL MANAGEMENT LLC",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-13",
-    "accession": "0002100119-26-001527",
-    "file": "data\\output\\Vanguard_Capital_Management_LLC\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-13",
+    "accession": "0002100119-26-001711",
+    "file": "data/output/Vanguard_Capital_Management_LLC/2026-09-30_13F.xlsx"
   },
   "2012383": {
     "name": "BlackRock, Inc.",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-07",
-    "accession": "0002012383-26-003238",
-    "file": "data\\output\\BlackRock_Inc.\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-13",
+    "accession": "0002012383-26-003985",
+    "file": "data/output/BlackRock_Inc./2026-09-30_13F.xlsx"
   },
   "93751": {
     "name": "STATE STREET CORP",
-    "period": "2026-06-30",
-    "filing_date": "2026-09-22",
-    "accession": "0000093751-26-000583",
-    "file": "data\\output\\State_Street_Corp\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-12",
+    "accession": "0000093751-26-000747",
+    "file": "data/output/State_Street_Corp/2026-09-30_13F.xlsx"
   },
   "2100121": {
     "name": "VANGUARD PORTFOLIO MANAGEMENT LLC",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-13",
-    "accession": "0002100121-26-001018",
-    "file": "data\\output\\Vanguard_Portfolio_Management_LLC\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-13",
+    "accession": "0002100121-26-001150",
+    "file": "data/output/Vanguard_Portfolio_Management_LLC/2026-09-30_13F.xlsx"
   },
   "315066": {
     "name": "FMR LLC",
     "period": "2026-09-30",
     "filing_date": "2026-11-10",
     "accession": "0000315066-26-002964",
-    "file": "data\\output\\FMR_LLC_Fidelity\\2026-09-30_13F.xlsx"
+    "file": "data/output/FMR_LLC_Fidelity/2026-09-30_13F.xlsx"
   },
   "1214717": {
     "name": "GEODE CAPITAL MANAGEMENT, LLC",
     "period": "2026-09-30",
     "filing_date": "2026-11-06",
     "accession": "0001214717-26-000012",
-    "file": "data\\output\\Geode_Capital_Management_LLC\\2026-09-30_13F.xlsx"
+    "file": "data/output/Geode_Capital_Management_LLC/2026-09-30_13F.xlsx"
   },
   "895421": {
     "name": "MORGAN STANLEY",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-13",
-    "accession": "0000895421-26-000243",
-    "file": "data\\output\\Morgan_Stanley\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-13",
+    "accession": "0000895421-26-000309",
+    "file": "data/output/Morgan_Stanley/2026-09-30_13F.xlsx"
   },
   "19617": {
     "name": "JPMORGAN CHASE & CO",
     "period": "2026-09-30",
     "filing_date": "2026-11-12",
     "accession": "0000019617-26-000404",
-    "file": "data\\output\\JPMorgan_Chase_Co\\2026-09-30_13F.xlsx"
+    "file": "data/output/JPMorgan_Chase_Co/2026-09-30_13F.xlsx"
   },
   "70858": {
     "name": "BANK OF AMERICA CORP /DE/",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0000070858-26-000442",
-    "file": "data\\output\\Bank_of_America_Corp\\2026-06-30_13F.xlsx"
+    "file": "data/output/Bank_of_America_Corp/2026-06-30_13F.xlsx"
   },
   "886982": {
     "name": "GOLDMAN SACHS GROUP INC",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0000886982-26-000519",
-    "file": "data\\output\\Goldman_Sachs_Group_Inc\\2026-06-30_13F.xlsx"
+    "file": "data/output/Goldman_Sachs_Group_Inc/2026-06-30_13F.xlsx"
   },
   "73124": {
     "name": "NORTHERN TRUST CORP",
     "period": "2026-06-30",
     "filing_date": "2026-08-13",
     "accession": "0000073124-26-000053",
-    "file": "data\\output\\Northern_Trust_Corp\\2026-06-30_13F.xlsx"
+    "file": "data/output/Northern_Trust_Corp/2026-06-30_13F.xlsx"
   },
   "1422848": {
     "name": "Capital Research Global Investors",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-12",
-    "accession": "0001422848-26-000094",
-    "file": "data\\output\\Capital_Research_Global_Investors\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-12",
+    "accession": "0001422848-26-000129",
+    "file": "data/output/Capital_Research_Global_Investors/2026-09-30_13F.xlsx"
   },
   "884546": {
     "name": "CHARLES SCHWAB INVESTMENT MANAGEMENT INC",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0001752724-26-000057",
-    "file": "data\\output\\Charles_Schwab_Investment_Management\\2026-06-30_13F.xlsx"
+    "file": "data/output/Charles_Schwab_Investment_Management/2026-06-30_13F.xlsx"
   },
   "902219": {
     "name": "WELLINGTON MANAGEMENT GROUP LLP",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0000902219-26-000311",
-    "file": "data\\output\\Wellington_Management_Group_LLP\\2026-06-30_13F.xlsx"
+    "file": "data/output/Wellington_Management_Group_LLP/2026-06-30_13F.xlsx"
   },
   "1390777": {
     "name": "Bank of New York Mellon Corp",
     "period": "2026-09-30",
     "filing_date": "2026-11-05",
     "accession": "0001390777-26-000121",
-    "file": "data\\output\\Bank_of_New_York_Mellon_Corp\\2026-09-30_13F.xlsx"
+    "file": "data/output/Bank_of_New_York_Mellon_Corp/2026-09-30_13F.xlsx"
   },
   "354204": {
     "name": "DIMENSIONAL FUND ADVISORS LP",
     "period": "2026-09-30",
     "filing_date": "2026-11-04",
     "accession": "0000354204-26-001096",
-    "file": "data\\output\\Dimensional_Fund_Advisors_LP\\2026-09-30_13F.xlsx"
+    "file": "data/output/Dimensional_Fund_Advisors_LP/2026-09-30_13F.xlsx"
   },
   "1000275": {
     "name": "ROYAL BANK OF CANADA",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0001140361-26-033080",
-    "file": "data\\output\\Royal_Bank_of_Canada\\2026-06-30_13F.xlsx"
+    "file": "data/output/Royal_Bank_of_Canada/2026-06-30_13F.xlsx"
   },
   "72971": {
     "name": "WELLS FARGO & COMPANY/MN",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0000072971-26-000304",
-    "file": "data\\output\\Wells_Fargo_Company\\2026-06-30_13F.xlsx"
+    "file": "data/output/Wells_Fargo_Company/2026-06-30_13F.xlsx"
   },
   "1067983": {
     "name": "BERKSHIRE HATHAWAY INC",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0001193125-26-352200",
-    "file": "data\\output\\Berkshire_Hathaway_Inc.\\2026-06-30_13F.xlsx"
+    "file": "data/output/Berkshire_Hathaway_Inc./2026-06-30_13F.xlsx"
   },
   "1423053": {
     "name": "CITADEL ADVISORS LLC",
     "period": "2026-06-30",
     "filing_date": "2026-09-02",
     "accession": "0001104659-26-104387",
-    "file": "data\\output\\Citadel_Advisors_LLC\\2026-06-30_13F.xlsx"
+    "file": "data/output/Citadel_Advisors_LLC/2026-06-30_13F.xlsx"
   },
   "1166559": {
     "name": "GATES FOUNDATION TRUST",
     "period": "2026-06-30",
     "filing_date": "2026-08-14",
     "accession": "0001104659-26-097175",
-    "file": "data\\output\\Millennium_Management_LLC\\2026-06-30_13F.xlsx"
+    "file": "data/output/Millennium_Management_LLC/2026-06-30_13F.xlsx"
   },
   "1037389": {
     "name": "RENAISSANCE TECHNOLOGIES LLC",
-    "period": "2026-06-30",
-    "filing_date": "2026-08-13",
-    "accession": "0001037389-26-000059",
-    "file": "data\\output\\Renaissance_Technologies_LLC\\2026-06-30_13F.xlsx"
+    "period": "2026-09-30",
+    "filing_date": "2026-11-12",
+    "accession": "0001037389-26-000062",
+    "file": "data/output/Renaissance_Technologies_LLC/2026-09-30_13F.xlsx"
   },
   "1649339": {
     "name": "Scion Asset Management, LLC",
     "period": "2025-09-30",
     "filing_date": "2025-11-03",
     "accession": "0001649339-25-000007",
-    "file": "data\\output\\Scion_Asset_Management_LLC\\2025-09-30_13F.xlsx"
+    "file": "data/output/Scion_Asset_Management_LLC/2025-09-30_13F.xlsx"
   },
   "1336528": {
     "name": "Pershing Square Capital Management, L.P.",
     "period": "2026-03-31",
     "filing_date": "2026-05-15",
     "accession": "0001172661-26-002336",
-    "file": "data\\output\\Pershing_Square_Capital_Management\\2026-03-31_13F.xlsx"
+    "file": "data/output/Pershing_Square_Capital_Management/2026-03-31_13F.xlsx"
   }
 }

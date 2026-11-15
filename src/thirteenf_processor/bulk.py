@@ -494,19 +494,39 @@ def screen(include_funds: bool = False, early: bool = False) -> int:
     min_prev = max(1, round(MIN_PREV * scale))
     min_holders = max(1, round(MIN_HOLDERS * scale))
 
-    counts = (
-        holders[holders["period"].isin(run)]
-        .groupby(["CUSIP", "period"])
-        .size()
-        .unstack(fill_value=0)[run]
+    # One row per STOCK, not per CUSIP: CUSIPs that share a ticker are merged, so a stock whose
+    # holders move between two CUSIPs (or report it under an old one) can't show up as both a
+    # gainer and a loser.
+    h = holders.loc[holders["period"].isin(run), ["CIK", "CUSIP", "period"]]
+    tmap = _ticker_by_cusip()
+    cusips = pd.Index(h["CUSIP"].unique())
+    keys = pd.Series([tmap.get(c) or c for c in cusips], index=cusips)
+    gid, gkeys = pd.factorize(keys)
+    h = h.assign(G=h["CUSIP"].map(pd.Series(gid, index=cusips)).astype("int32"))
+
+    counts = h.groupby(["G", "period"])["CIK"].nunique().unstack(fill_value=0)[run]
+    now_set = h.loc[h["period"] == latest, ["CIK", "G"]].drop_duplicates()
+    prev_set = h.loc[h["period"] == prev, ["CIK", "G"]].drop_duplicates()
+    pair = ["CIK", "G"]
+    gone = prev_set.merge(now_set, on=pair, how="left", indicator=True)
+    new = now_set.merge(prev_set, on=pair, how="left", indicator=True)
+    added = new[new["_merge"] == "left_only"].groupby("G").size()
+    dropped = gone[gone["_merge"] == "left_only"].groupby("G").size()
+
+    # name and CUSIP(s) of each stock: the CUSIP with the most holders leads
+    per_cusip = (
+        h.loc[h["period"].isin([latest, prev])]
+        .groupby(["G", "CUSIP"])["CIK"]
+        .nunique()
+        .rename("n")
+        .reset_index()
+        .sort_values(["G", "n"], ascending=[True, False])
     )
-    now_set = holders.loc[holders["period"] == latest, ["CIK", "CUSIP"]]
-    prev_set = holders.loc[holders["period"] == prev, ["CIK", "CUSIP"]]
-    keys = ["CIK", "CUSIP"]
-    gone = prev_set.merge(now_set, on=keys, how="left", indicator=True)
-    new = now_set.merge(prev_set, on=keys, how="left", indicator=True)
-    added = new[new["_merge"] == "left_only"].groupby("CUSIP").size()
-    dropped = gone[gone["_merge"] == "left_only"].groupby("CUSIP").size()
+    lead = per_cusip.drop_duplicates("G").set_index("G")["CUSIP"]
+    all_cusips = per_cusip.groupby("G")["CUSIP"].agg(lambda x: "; ".join(list(x)[:3]))
+    has_ticker = (
+        pd.Series([bool(tmap.get(c)) for c in cusips]).groupby(gid).any().to_dict()
+    )
 
     t = pd.DataFrame({"Before": counts[prev], "Now": counts[latest]})
     t["Change"] = t["Now"] - t["Before"]
@@ -514,14 +534,15 @@ def screen(include_funds: bool = False, early: bool = False) -> int:
     t["Added"] = added.reindex(t.index).fillna(0).astype(int)
     t["Dropped"] = dropped.reindex(t.index).fillna(0).astype(int)
     t["Streak"] = _signed_streaks(counts)
-    t["Issuer"] = names.reindex(t.index).fillna("")
-    t["Ticker"] = pd.Series(_ticker_by_cusip()).reindex(t.index).fillna("")
+    t["Issuer"] = names.reindex(lead.reindex(t.index).to_numpy()).fillna("").to_numpy()
+    t["Ticker"] = [gkeys[g] if has_ticker.get(g) else "" for g in t.index]
+    t["CUSIP"] = all_cusips.reindex(t.index).fillna("")
     t["Type guess"] = (
         t["Issuer"]
         .str.contains(FUND_PATTERN)
         .map({True: "ETF / fund / SPAC?", False: ""})
     )
-    t = t.reset_index().rename(columns={"index": "CUSIP"})
+    t = t.reset_index(drop=True)
 
     t = t[(t["Before"] >= min_prev) & (t[["Before", "Now"]].max(axis=1) >= min_holders)]
     hidden = 0

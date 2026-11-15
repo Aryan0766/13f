@@ -97,6 +97,22 @@
       "console": "integratedTerminal"
     },
     {
+      "name": "13F: Combine all filers (one Excel)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.combine",
+      "args": [
+        "--period",
+        "${input:combinePeriod}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
       "name": "13F: Build fund (N-PORT) index",
       "type": "debugpy",
       "request": "launch",
@@ -174,6 +190,12 @@
     }
   ],
   "inputs": [
+    {
+      "id": "combinePeriod",
+      "type": "promptString",
+      "description": "Quarter end to combine (e.g. 2026-06-30), or 'latest' for each filer's newest",
+      "default": "latest"
+    },
     {
       "id": "pickFiler",
       "type": "pickString",
