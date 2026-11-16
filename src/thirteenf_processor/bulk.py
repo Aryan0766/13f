@@ -291,6 +291,50 @@ def _load_holders() -> tuple[pd.DataFrame, set[str]]:
     return pd.concat([holders, live], ignore_index=True), set(live["period"].unique())
 
 
+def lookup_data(query: str) -> dict:
+    """Same numbers as lookup(), as data (used by the web page). Raises ValueError if unknown."""
+    holders, live_periods = _load_holders()
+    names = pd.read_parquet(INDEX_DIR / "names.parquet").set_index("CUSIP")["Issuer"]
+    cusips = _resolve(query, set(holders["CUSIP"].unique()))
+    if not cusips:
+        raise ValueError(
+            f"No holdings found for {query!r}. Check the ticker, or type the 9-character "
+            "CUSIP. (Options, ETFs without 13F holders and brand-new listings may not appear.)"
+        )
+    table = _lookup_table(holders, cusips)
+    totals = holders.groupby("period")["CIK"].nunique()
+    share = (totals / totals.max()).to_dict()
+    streak, direction = _streak(table)
+    notes = [
+        ", ".join(
+            x
+            for x in (
+                ""
+                if r.Complete
+                else f"DATA INCOMPLETE ({share[r.Quarter]:.0%} of filers in)",
+                "live (EDGAR)" if r.Quarter in live_periods else "",
+            )
+            if x
+        )
+        for r in table.itertuples()
+    ]
+    out = (
+        table.drop(columns=["Complete"])
+        .rename(columns={"Funds": "Filers"})
+        .assign(Note=notes)
+    )
+    return {
+        "query": query.upper(),
+        "issuer": names.get(cusips[0], ""),
+        "cusips": cusips,
+        "table": out,
+        "complete": table["Complete"].tolist(),
+        "streak": streak,
+        "direction": direction,
+        "live_periods": sorted(live_periods),
+    }
+
+
 def lookup(query: str) -> int:
     holders, live_periods = _load_holders()
     names = pd.read_parquet(INDEX_DIR / "names.parquet").set_index("CUSIP")["Issuer"]
@@ -348,10 +392,6 @@ def lookup(query: str) -> int:
         "Counts above are 13F filers (institutional managers: Fidelity counts once), "
         "not individual funds."
     )
-    from . import nport  # fund-level (N-PORT) block, if the fund index has been built
-
-    fund = nport.fund_table(cusips)
-    lines.extend(nport.format_block(fund))
     print("\n".join(lines))
 
     LOOKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -378,11 +418,6 @@ def lookup(query: str) -> int:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
             export.to_excel(xw, sheet_name="13F filers", index=False)
             _autosize(xw.sheets["13F filers"])
-            if fund is not None:
-                nport.excel_table(fund).to_excel(
-                    xw, sheet_name="Funds (N-PORT)", index=False
-                )
-                _autosize(xw.sheets["Funds (N-PORT)"])
         print(f"Saved: {out.relative_to(PROJECT_ROOT)}")
     except PermissionError:
         print(f"(Could not save {out.name}; close it in Excel and run again.)")
@@ -476,14 +511,15 @@ def _signed_streaks(counts: pd.DataFrame) -> pd.Series:
     return pd.Series((streak * last).astype(int), index=counts.index)
 
 
-def screen(include_funds: bool = False, early: bool = False) -> int:
+def screen_data(include_funds: bool = False, early: bool = False) -> dict:
+    """Compute the holder-count screen. screen() prints/saves it; the web page shows it."""
     holders, live_periods = _load_holders()
     names = pd.read_parquet(INDEX_DIR / "names.parquet").set_index("CUSIP")["Issuer"]
-    scale, cohort_n = 1.0, 0
+    scale, cohort_n, fell_back = 1.0, 0, False
     plan = _early_periods(holders) if early else None
     if early and plan is None:
-        print("The newest quarter is already complete, so this is the normal screen.")
         early = False
+        fell_back = True
     if plan is not None:
         latest, prev, run, cohort, scale = plan
         cohort_n = len(cohort)
@@ -560,32 +596,6 @@ def screen(include_funds: bool = False, early: bool = False) -> int:
     )
     gainers, losers, streaks = (x.head(TOP_N) for x in (gainers, losers, streaks))
 
-    title = "EARLY LOOK holder-count screen" if early else "Holder-count screen"
-    print(
-        f"\n{title}: {latest} vs {prev}   "
-        f"({len(t):,} stocks screened, {hidden:,} ETFs/funds/SPACs hidden)"
-    )
-    if early:
-        print(
-            f"Only the {cohort_n:,} filers that have filed for {latest} AND {prev} are counted "
-            f"({scale:.0%} of {prev}'s filers). Early filers are not a random sample."
-        )
-    print()
-    show = gainers.head(25)
-    print(
-        f"{'Ticker':<8}{'Issuer':<32}{'Before':>8}{'Now':>8}{'Change':>8}{'%':>8}{'Streak':>8}"
-    )
-    for r in show.to_dict("records"):
-        print(
-            f"{r['Ticker'][:7]:<8}{r['Issuer'][:30]:<32}{r['Before']:>8,}{r['Now']:>8,}"
-            f"{r['Change']:>+8,}{r['Change %']:>+8.1f}{r['Streak']:>+8}"
-        )
-    print(
-        "\nTop 25 gainers shown. The Excel file has the top gainers, top losers and "
-        f"stocks rising {STREAK_MIN}+ quarters in a row.\n"
-        "Counts are 13F filers (institutional managers), not individual mutual funds."
-    )
-
     live_note = (
         f"Quarter(s) {', '.join(sorted(live_periods & {latest, prev}))} come from live EDGAR "
         "fetches and are not yet confirmed by the SEC data set."
@@ -622,8 +632,59 @@ def screen(include_funds: bool = False, early: bool = False) -> int:
         )
     if live_note:
         note_lines.insert(1, live_note)
-        print(f"\n{live_note}")
-    notes = pd.DataFrame({"Notes": note_lines})
+    return {
+        "early": early,
+        "fell_back": fell_back,
+        "latest": latest,
+        "prev": prev,
+        "screened": len(t),
+        "hidden": hidden,
+        "cohort_n": cohort_n,
+        "scale": scale,
+        "gainers": gainers,
+        "losers": losers,
+        "streaks": streaks,
+        "live_note": live_note,
+        "notes": note_lines,
+    }
+
+
+def screen(include_funds: bool = False, early: bool = False) -> int:
+    d = screen_data(include_funds, early)
+    if d["fell_back"]:
+        print("The newest quarter is already complete, so this is the normal screen.")
+    early, latest, prev = d["early"], d["latest"], d["prev"]
+    hidden, cohort_n, scale = d["hidden"], d["cohort_n"], d["scale"]
+    gainers, losers, streaks = d["gainers"], d["losers"], d["streaks"]
+    if d["live_note"]:
+        print(f"\n{d['live_note']}")
+    title = "EARLY LOOK holder-count screen" if early else "Holder-count screen"
+    print(
+        f"\n{title}: {latest} vs {prev}   "
+        f"({d['screened']:,} stocks screened, {hidden:,} ETFs/funds/SPACs hidden)"
+    )
+    if early:
+        print(
+            f"Only the {cohort_n:,} filers that have filed for {latest} AND {prev} are counted "
+            f"({scale:.0%} of {prev}'s filers). Early filers are not a random sample."
+        )
+    print()
+    show = gainers.head(25)
+    print(
+        f"{'Ticker':<8}{'Issuer':<32}{'Before':>8}{'Now':>8}{'Change':>8}{'%':>8}{'Streak':>8}"
+    )
+    for r in show.to_dict("records"):
+        print(
+            f"{r['Ticker'][:7]:<8}{r['Issuer'][:30]:<32}{r['Before']:>8,}{r['Now']:>8,}"
+            f"{r['Change']:>+8,}{r['Change %']:>+8.1f}{r['Streak']:>+8}"
+        )
+    print(
+        "\nTop 25 gainers shown. The Excel file has the top gainers, top losers and "
+        f"stocks rising {STREAK_MIN}+ quarters in a row.\n"
+        "Counts are 13F filers (institutional managers), not individual mutual funds."
+    )
+
+    notes = pd.DataFrame({"Notes": d["notes"]})
     SCREEN_DIR.mkdir(parents=True, exist_ok=True)
     out = SCREEN_DIR / f"holder_screen_{'early_' if early else ''}{latest}.xlsx"
     try:

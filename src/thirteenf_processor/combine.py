@@ -182,7 +182,8 @@ def _tab(xw: pd.ExcelWriter, name: str, df: pd.DataFrame) -> None:
     _autosize(ws)
 
 
-def combine(period: str | None = None) -> int:
+def build_tables(period: str | None = None) -> dict:
+    """Everything the combined workbook (and the web page) shows, as DataFrames."""
     table, used, missing = load_all(period)
     t = _prep(table)
     periods = sorted(set(used["Period"]))
@@ -239,31 +240,49 @@ def combine(period: str | None = None) -> int:
         ),
     ]
 
+    all_holdings = t[
+        list(
+            dict.fromkeys(
+                c
+                for c in ["Filer", "Group", "Person", *table.columns]
+                if c in t.columns
+            )
+        )
+    ]
+    return {
+        "summary": summary,
+        "stocks": stocks,
+        "top_buys": top_buys,
+        "top_sells": top_sells,
+        "all_holdings": all_holdings,
+        "notes": pd.DataFrame(notes, columns=["Item", "Note"]),
+        "periods": periods,
+        "missing": missing,
+        "used": len(used),
+    }
+
+
+def combine(period: str | None = None) -> int:
+    d = build_tables(period)
+    periods, missing = d["periods"], d["missing"]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     label = period or ("Combined" if len(periods) > 1 else periods[0])
     out = OUTPUT_DIR / f"All_Filers_{label}.xlsx"
     try:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
-            _tab(xw, "Filer summary", summary)
-            _tab(xw, "By stock", stocks)
-            _tab(xw, "Top buys", top_buys)
-            _tab(xw, "Top sells", top_sells)
-            cols = [
-                c
-                for c in ["Filer", "Group", "Person", *table.columns]
-                if c in t.columns
-            ]
-            _tab(xw, "All holdings", t[list(dict.fromkeys(cols))])
-            pd.DataFrame(notes, columns=["Item", "Note"]).to_excel(
-                xw, sheet_name="Notes", index=False
-            )
+            _tab(xw, "Filer summary", d["summary"])
+            _tab(xw, "By stock", d["stocks"])
+            _tab(xw, "Top buys", d["top_buys"])
+            _tab(xw, "Top sells", d["top_sells"])
+            _tab(xw, "All holdings", d["all_holdings"])
+            d["notes"].to_excel(xw, sheet_name="Notes", index=False)
             _autosize(xw.sheets["Notes"])
     except PermissionError:
         raise SystemExit(
             f"Can't write {out.name}. Close it in Excel and run again."
         ) from None
 
-    print(f"Combined {len(used)} filers ({', '.join(periods)}).")
+    print(f"Combined {d['used']} filers ({', '.join(periods)}).")
     if len(periods) > 1:
         print("WARNING: filers are on different quarters; see the Notes tab.")
     if missing:

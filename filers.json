@@ -46,12 +46,12 @@
   },
   {
     "name": "Norges Bank (Central Bank of Norway)",
-    "cik": "0001166708",
+    "cik": "0001374170",
     "group": "Institution"
   },
   {
     "name": "UBS Group AG",
-    "cik": "0001422780",
+    "cik": "0001610520",
     "group": "Institution"
   },
   {
@@ -113,7 +113,7 @@
   },
   {
     "name": "Millennium Management LLC",
-    "cik": "0001166559",
+    "cik": "0001273087",
     "group": "Investor",
     "person": "Israel Englander"
   },
@@ -125,7 +125,7 @@
   },
   {
     "name": "Bridgewater Associates, LP",
-    "cik": "0001350616",
+    "cik": "0001350694",
     "group": "Investor",
     "person": "Ray Dalio"
   },
@@ -137,7 +137,7 @@
   },
   {
     "name": "Appaloosa LP",
-    "cik": "0001006434",
+    "cik": "0001656456",
     "group": "Investor",
     "person": "David Tepper"
   },
@@ -149,14 +149,80 @@
   },
   {
     "name": "Duquesne Family Office LLC",
-    "cik": "0001536313",
+    "cik": "0001536411",
     "group": "Investor",
     "person": "Stanley Druckenmiller"
   },
   {
     "name": "Icahn Carl C",
-    "cik": "0000813769",
+    "cik": "0000921669",
     "group": "Investor",
     "person": "Carl Icahn"
+  },
+  {
+    "name": "TCI Fund Management Ltd",
+    "cik": "0001647251",
+    "group": "Investor",
+    "person": "Chris Hohn"
+  },
+  {
+    "name": "Fundsmith LLP",
+    "cik": "0001569205",
+    "group": "Investor",
+    "person": "Terry Smith"
+  },
+  {
+    "name": "Baupost Group LLC",
+    "cik": "0001061768",
+    "group": "Investor",
+    "person": "Seth Klarman"
+  },
+  {
+    "name": "Oaktree Capital Management LP",
+    "cik": "0000949509",
+    "group": "Investor",
+    "person": "Howard Marks"
+  },
+  {
+    "name": "Himalaya Capital Management LLC",
+    "cik": "0001709323",
+    "group": "Investor",
+    "person": "Li Lu"
+  },
+  {
+    "name": "Point72 Asset Management, L.P.",
+    "cik": "0001603466",
+    "group": "Investor",
+    "person": "Steve Cohen"
+  },
+  {
+    "name": "Soros Fund Management LLC",
+    "cik": "0001029160",
+    "group": "Investor",
+    "person": "George Soros"
+  },
+  {
+    "name": "Coatue Management LLC",
+    "cik": "0001135730",
+    "group": "Investor",
+    "person": "Philippe Laffont"
+  },
+  {
+    "name": "Viking Global Investors LP",
+    "cik": "0001103804",
+    "group": "Investor",
+    "person": "Andreas Halvorsen"
+  },
+  {
+    "name": "Tiger Global Management LLC",
+    "cik": "0001167483",
+    "group": "Investor",
+    "person": "Chase Coleman"
+  },
+  {
+    "name": "ARK Investment Management LLC",
+    "cik": "0001697748",
+    "group": "Investor",
+    "person": "Cathie Wood"
   }
 ]

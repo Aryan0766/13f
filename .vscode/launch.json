@@ -97,13 +97,17 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "13F: Combine all filers (one Excel)",
+      "name": "13F: Open as website (Chrome tab)",
       "type": "debugpy",
       "request": "launch",
-      "module": "thirteenf_processor.combine",
+      "module": "streamlit",
       "args": [
-        "--period",
-        "${input:combinePeriod}"
+        "run",
+        "${workspaceFolder}/src/thirteenf_processor/web.py",
+        "--server.address",
+        "localhost",
+        "--browser.gatherUsageStats",
+        "false"
       ],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
@@ -113,12 +117,13 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "13F: Build fund (N-PORT) index",
+      "name": "13F: Combine all filers (one Excel)",
       "type": "debugpy",
       "request": "launch",
-      "module": "thirteenf_processor.nport",
+      "module": "thirteenf_processor.combine",
       "args": [
-        "--build"
+        "--period",
+        "${input:combinePeriod}"
       ],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
@@ -239,11 +244,11 @@
         },
         {
           "label": "Norges Bank (Central Bank of Norway)",
-          "value": "0001166708"
+          "value": "0001374170"
         },
         {
           "label": "UBS Group AG",
-          "value": "0001422780"
+          "value": "0001610520"
         },
         {
           "label": "Goldman Sachs Group Inc",
@@ -282,44 +287,88 @@
           "value": "0000072971"
         },
         {
-          "label": "Warren Buffett - Berkshire Hathaway Inc.",
+          "label": "Berkshire Hathaway Inc.",
           "value": "0001067983"
         },
         {
-          "label": "Ken Griffin - Citadel Advisors LLC",
+          "label": "Citadel Advisors LLC",
           "value": "0001423053"
         },
         {
-          "label": "Israel Englander - Millennium Management LLC",
-          "value": "0001166559"
+          "label": "Millennium Management LLC",
+          "value": "0001273087"
         },
         {
-          "label": "Jim Simons (legacy) - Renaissance Technologies LLC",
+          "label": "Renaissance Technologies LLC",
           "value": "0001037389"
         },
         {
-          "label": "Ray Dalio - Bridgewater Associates, LP",
-          "value": "0001350616"
+          "label": "Bridgewater Associates, LP",
+          "value": "0001350694"
         },
         {
-          "label": "Michael Burry - Scion Asset Management, LLC",
+          "label": "Scion Asset Management, LLC",
           "value": "0001649339"
         },
         {
-          "label": "David Tepper - Appaloosa LP",
-          "value": "0001006434"
+          "label": "Appaloosa LP",
+          "value": "0001656456"
         },
         {
-          "label": "Bill Ackman - Pershing Square Capital Management",
+          "label": "Pershing Square Capital Management",
           "value": "0001336528"
         },
         {
-          "label": "Stanley Druckenmiller - Duquesne Family Office LLC",
-          "value": "0001536313"
+          "label": "Duquesne Family Office LLC",
+          "value": "0001536411"
         },
         {
-          "label": "Carl Icahn - Icahn Carl C",
-          "value": "0000813769"
+          "label": "Icahn Carl C",
+          "value": "0000921669"
+        },
+        {
+          "label": "TCI Fund Management Ltd",
+          "value": "0001647251"
+        },
+        {
+          "label": "Fundsmith LLP",
+          "value": "0001569205"
+        },
+        {
+          "label": "Baupost Group LLC",
+          "value": "0001061768"
+        },
+        {
+          "label": "Oaktree Capital Management LP",
+          "value": "0000949509"
+        },
+        {
+          "label": "Himalaya Capital Management LLC",
+          "value": "0001709323"
+        },
+        {
+          "label": "Point72 Asset Management, L.P.",
+          "value": "0001603466"
+        },
+        {
+          "label": "Soros Fund Management LLC",
+          "value": "0001029160"
+        },
+        {
+          "label": "Coatue Management LLC",
+          "value": "0001135730"
+        },
+        {
+          "label": "Viking Global Investors LP",
+          "value": "0001103804"
+        },
+        {
+          "label": "Tiger Global Management LLC",
+          "value": "0001167483"
+        },
+        {
+          "label": "ARK Investment Management LLC",
+          "value": "0001697748"
         }
       ],
       "default": "0002012383"
