@@ -13,6 +13,7 @@ import subprocess
 import sys
 from datetime import date
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -30,9 +31,103 @@ from thirteenf_processor.processor import (
 
 ENV_FILE = PROJECT_ROOT / ".env"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+LIVE_LINES = 10  # lines shown while a job runs
+PROBLEM = re.compile(r"\bERROR\b|FAILED:|Traceback|Exception|Can't write")
 
 load_dotenv(ENV_FILE)
 st.set_page_config(page_title="13F Tracker", page_icon=":bar_chart:", layout="wide")
+
+# one small palette used everywhere (readable on light and dark backgrounds)
+BLUE, AMBER, GREEN, RED = "#2563EB", "#F59E0B", "#16A34A", "#DC2626"
+st.markdown(
+    """
+    <style>
+    div[data-testid="stMetric"] {
+        background: rgba(148, 163, 184, 0.12);
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+    button[data-baseweb="tab"] { font-size: 1rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+CHART_HEIGHT = 300  # every chart has the same fixed height
+TABLE_HEIGHT = 430  # tables scroll inside this height instead of making the page longer
+
+
+def _sign_color(value) -> str:
+    if pd.isna(value) or value == 0:
+        return ""
+    return (
+        f"color: {GREEN}; font-weight: 600"
+        if value > 0
+        else f"color: {RED}; font-weight: 600"
+    )
+
+
+def _styled(df: pd.DataFrame):
+    """Numbers with separators and green/red for up/down moves."""
+    fmt = {
+        "Before": "{:,.0f}",
+        "Now": "{:,.0f}",
+        "Filers": "{:,.0f}",
+        "Change": "{:+,.0f}",
+        "Change %": "{:+.1f}%",
+        "Added": "{:,.0f}",
+        "Dropped": "{:,.0f}",
+        "Streak": "{:+.0f}",
+    }
+    cols = [c for c in fmt if c in df.columns]
+    styler = df.style.format({c: fmt[c] for c in cols}, na_rep="-")
+    paint = (
+        getattr(styler, "map", None) or styler.applymap
+    )  # older pandas calls it applymap
+    colored = [c for c in ("Change", "Change %", "Streak") if c in df.columns]
+    return paint(_sign_color, subset=colored) if colored else styler
+
+
+def _quarter_chart(table: pd.DataFrame, complete: list[bool]):
+    df = table[["Quarter", "Filers"]].copy()
+    df["State"] = ["Complete" if c else "Incomplete (still filing)" for c in complete]
+    base = alt.Chart(df).encode(
+        x=alt.X(
+            "Quarter:N",
+            sort=list(df["Quarter"]),
+            title=None,
+            axis=alt.Axis(labelAngle=0),
+        )
+    )
+    bars = base.mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+        y=alt.Y("Filers:Q", title=None),
+        color=alt.Color(
+            "State:N",
+            scale=alt.Scale(
+                domain=["Complete", "Incomplete (still filing)"], range=[BLUE, AMBER]
+            ),
+            legend=alt.Legend(title=None, orient="top"),
+        ),
+        tooltip=["Quarter", alt.Tooltip("Filers:Q", format=","), "State"],
+    )
+    labels = base.mark_text(dy=-8, fontSize=12).encode(
+        y="Filers:Q", text=alt.Text("Filers:Q", format=",")
+    )
+    return (bars + labels).properties(height=CHART_HEIGHT)
+
+
+def _movers_chart(df: pd.DataFrame, color: str):
+    top = df.head(15).copy()
+    top["Label"] = top["Ticker"].where(top["Ticker"] != "", top["Issuer"].str[:18])
+    return (
+        alt.Chart(top)
+        .mark_bar(color=color, cornerRadiusEnd=4)
+        .encode(
+            y=alt.Y("Label:N", sort=None, title=None),
+            x=alt.X("Change:Q", title="Change in number of filers"),
+            tooltip=["Ticker", "Issuer", "Before", "Now", "Change"],
+        )
+        .properties(height=CHART_HEIGHT)
+    )
 
 
 # --------------------------------------------------------------------------- identity
@@ -140,6 +235,16 @@ def _xlsx(frames: dict[str, pd.DataFrame]) -> bytes:
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
+def _save(path, data: bytes) -> None:
+    """Also keep the Excel in the project's output folder, like the VS Code buttons do."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        st.caption(f"Saved: {path.relative_to(PROJECT_ROOT)}")
+    except PermissionError:
+        st.warning(f"Could not save {path.name}: close it in Excel and try again.")
+
+
 # --------------------------------------------------------------------------- tab: lookup
 
 
@@ -184,14 +289,21 @@ def tab_lookup() -> None:
             f"{', '.join(d['live_periods'])} came straight from EDGAR and is not yet confirmed "
             "by the SEC data set."
         )
-    st.bar_chart(table.set_index("Quarter")["Filers"])
-    st.dataframe(table, hide_index=True, width="stretch")
+    left, right = st.columns([3, 2])
+    with left:
+        st.altair_chart(_quarter_chart(table, d["complete"]), width="stretch")
+    with right:
+        st.dataframe(
+            _styled(table), hide_index=True, width="stretch", height=CHART_HEIGHT
+        )
+    data = _xlsx({"13F filers": table})
     st.download_button(
         "Download as Excel",
-        _xlsx({"13F filers": table}),
+        data,
         file_name=f"{d['query']}_filers.xlsx",
         mime=XLSX,
     )
+    _save(bulk.LOOKUP_DIR / f"{bulk._norm(query)}_funds.xlsx", data)
     st.caption(
         "Counts are 13F filers (institutional managers: Fidelity counts once), not funds."
     )
@@ -208,13 +320,19 @@ def tab_screener() -> None:
         help="Compares only filers that have filed for both quarters.",
     )
     include_funds = c2.checkbox("Include ETFs, funds and SPACs")
-    if not st.button("Run screener", type="primary"):
-        return
-    try:
-        with st.spinner("Screening..."):
-            d = bulk.screen_data(include_funds, early)
-    except SystemExit as exc:
-        st.error(str(exc))
+    if st.button("Run screener", type="primary"):
+        try:
+            with st.spinner("Screening..."):
+                st.session_state["screen"] = bulk.screen_data(include_funds, early)
+            st.session_state["screen_saved"] = False
+        except SystemExit as exc:
+            st.session_state.pop("screen", None)
+            st.error(str(exc))
+            return
+    d = st.session_state.get(
+        "screen"
+    )  # kept, so downloads and tab clicks don't erase it
+    if d is None:
         return
     if d["fell_back"]:
         st.info("The newest quarter is already complete, so this is the normal screen.")
@@ -231,24 +349,58 @@ def tab_screener() -> None:
         )
     if d["live_note"]:
         st.info(d["live_note"])
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Stocks screened", f"{d['screened']:,}")
+    if not d["gainers"].empty:
+        top = d["gainers"].iloc[0]
+        m2.metric(
+            "Biggest gainer",
+            str(top["Ticker"] or top["Issuer"])[:18],
+            f"{int(top['Change']):+,}",
+        )
+    if not d["losers"].empty:
+        low = d["losers"].iloc[0]
+        m3.metric(
+            "Biggest loser",
+            str(low["Ticker"] or low["Issuer"])[:18],
+            f"{int(low['Change']):+,}",
+        )
     g, lo, st3 = st.tabs(["Gainers", "Losers", f"Rising {bulk.STREAK_MIN}+ quarters"])
-    for tab, key in ((g, "gainers"), (lo, "losers"), (st3, "streaks")):
+    for tab, key, color in (
+        (g, "gainers", GREEN),
+        (lo, "losers", RED),
+        (st3, "streaks", BLUE),
+    ):
         with tab:
-            st.dataframe(d[key], hide_index=True, width="stretch")
+            frame = d[key]
+            if frame.empty:
+                st.caption("Nothing to show here.")
+                continue
+            chart_frame = (
+                frame if key != "streaks" else frame.assign(Change=frame["Streak"])
+            )
+            st.altair_chart(_movers_chart(chart_frame, color), width="stretch")
+            st.dataframe(
+                _styled(frame), hide_index=True, width="stretch", height=TABLE_HEIGHT
+            )
     notes = pd.DataFrame({"Notes": d["notes"]})
-    st.download_button(
-        "Download as Excel",
-        _xlsx(
-            {
-                "Gainers": d["gainers"],
-                "Losers": d["losers"],
-                f"Rising {bulk.STREAK_MIN}+ qtrs": d["streaks"],
-                "Notes": notes,
-            }
-        ),
-        file_name=f"holder_screen_{'early_' if d['early'] else ''}{d['latest']}.xlsx",
-        mime=XLSX,
+    name = f"holder_screen_{'early_' if d['early'] else ''}{d['latest']}.xlsx"
+    data = _xlsx(
+        {
+            "Gainers": d["gainers"],
+            "Losers": d["losers"],
+            f"Rising {bulk.STREAK_MIN}+ qtrs": d["streaks"],
+            "Notes": notes,
+        }
     )
+    st.download_button("Download as Excel", data, file_name=name, mime=XLSX)
+    if not st.session_state.get(
+        "screen_saved"
+    ):  # save once per run, not on every click
+        _save(bulk.SCREEN_DIR / name, data)
+        st.session_state["screen_saved"] = True
+    else:
+        st.caption(f"Saved: {(bulk.SCREEN_DIR / name).relative_to(PROJECT_ROOT)}")
     with st.expander("Notes"):
         for line in d["notes"]:
             st.write("- " + line)
@@ -343,21 +495,26 @@ def tab_filers() -> None:
         st.dataframe(d["top_sells"], hide_index=True, width="stretch")
     with st.expander("Notes"):
         st.dataframe(d["notes"], hide_index=True, width="stretch")
-    st.download_button(
+    data = _xlsx(
+        {
+            "Filer summary": d["summary"],
+            "By stock": d["stocks"],
+            "Top buys": d["top_buys"],
+            "Top sells": d["top_sells"],
+            "All holdings": d["all_holdings"],
+            "Notes": d["notes"],
+        }
+    )
+    label = period or ("Combined" if len(d["periods"]) > 1 else d["periods"][0])
+    c1, c2 = st.columns(2)
+    c1.download_button(
         "Download combined Excel",
-        _xlsx(
-            {
-                "Filer summary": d["summary"],
-                "By stock": d["stocks"],
-                "Top buys": d["top_buys"],
-                "Top sells": d["top_sells"],
-                "All holdings": d["all_holdings"],
-                "Notes": d["notes"],
-            }
-        ),
-        file_name=f"All_Filers_{period or 'latest'}.xlsx",
+        data,
+        file_name=f"All_Filers_{label}.xlsx",
         mime=XLSX,
     )
+    if c2.button("Save it in my outputs folder"):
+        _save(OUTPUT_DIR / f"All_Filers_{label}.xlsx", data)
 
 
 # --------------------------------------------------------------------------- tab: run updates
@@ -393,20 +550,31 @@ def run_job(
         assert proc.stdout is not None
         for line in proc.stdout:
             lines.append(line.rstrip())
-            box.code("\n".join(lines[-300:]), language=None)
+            # a fixed-size window: only the last few lines, so the page never grows
+            box.code("\n".join(lines[-LIVE_LINES:]), language=None)
         code = proc.wait()
     finally:
         if proc.poll() is None:
             proc.terminate()
+    box.empty()
     st.cache_resource.clear()  # new data may have arrived
     st.cache_data.clear()
-    if code == 0:
+    st.session_state.pop("screen", None)  # an old screen would now be out of date
+
+    problems = [ln for ln in lines if PROBLEM.search(ln)]
+    if code == 0 and not problems:
         st.success(f"{label}: finished.")
-    else:
-        st.error(
-            f"{label}: finished with problems (exit code {code}). Read the last lines above; "
-            "lines starting with FAILED say which filer and why."
+    elif code == 0:
+        st.warning(
+            f"{label}: finished, but some lines mention problems (listed below)."
         )
+    else:
+        st.error(f"{label}: finished with problems (exit code {code}).")
+    if problems:
+        st.error("\n".join(problems[-15:]))
+    if lines:
+        with st.expander(f"Full log ({len(lines):,} lines)"), st.container(height=350):
+            st.code("\n".join(lines[-2000:]), language=None)
 
 
 def tab_updates(has_identity: bool) -> None:
