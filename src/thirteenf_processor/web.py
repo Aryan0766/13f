@@ -18,7 +18,7 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from thirteenf_processor import bulk, combine
+from thirteenf_processor import bulk, combine, sector
 from thirteenf_processor.live import LIVE_DIR
 from thirteenf_processor.processor import (
     OUTPUT_DIR,
@@ -365,7 +365,11 @@ def tab_screener() -> None:
             str(low["Ticker"] or low["Issuer"])[:18],
             f"{int(low['Change']):+,}",
         )
-    g, lo, st3 = st.tabs(["Gainers", "Losers", f"Rising {bulk.STREAK_MIN}+ quarters"])
+    g, lo, st3, sec_tab = st.tabs(
+        ["Gainers", "Losers", f"Rising {bulk.STREAK_MIN}+ quarters", "By sector"]
+    )
+    with sec_tab:
+        _screener_sectors(d)
     for tab, key, color in (
         (g, "gainers", GREEN),
         (lo, "losers", RED),
@@ -385,14 +389,15 @@ def tab_screener() -> None:
             )
     notes = pd.DataFrame({"Notes": d["notes"]})
     name = f"holder_screen_{'early_' if d['early'] else ''}{d['latest']}.xlsx"
-    data = _xlsx(
-        {
-            "Gainers": d["gainers"],
-            "Losers": d["losers"],
-            f"Rising {bulk.STREAK_MIN}+ qtrs": d["streaks"],
-            "Notes": notes,
-        }
-    )
+    sheets = {
+        "Gainers": d["gainers"],
+        "Losers": d["losers"],
+        f"Rising {bulk.STREAK_MIN}+ qtrs": d["streaks"],
+    }
+    if sector.load_map():
+        sheets["By sector"] = sector.screen_sectors(d["universe"])[0]
+    sheets["Notes"] = notes
+    data = _xlsx(sheets)
     st.download_button("Download as Excel", data, file_name=name, mime=XLSX)
     if not st.session_state.get(
         "screen_saved"
@@ -435,6 +440,98 @@ def _periods_on_disk() -> list[str]:
 @st.cache_data(show_spinner="Combining the filer workbooks...")
 def _combined(period: str | None, stamp: float) -> dict:
     return combine.build_tables(period)
+
+
+def _sector_table(df: pd.DataFrame):
+    """Sector summary with the verdict coloured green / red."""
+
+    def paint(v):
+        text = str(v)
+        if text.startswith(("Mostly gaining", "Mostly added")):
+            return f"color: {GREEN}; font-weight: 600"
+        if text.startswith(("Mostly losing", "Mostly trimmed")):
+            return f"color: {RED}; font-weight: 600"
+        return ""
+
+    styler = df.style
+    paint_cells = getattr(styler, "map", None) or styler.applymap
+    return paint_cells(paint, subset=["Verdict"])
+
+
+def _need_sector_map() -> bool:
+    if sector.load_map():
+        return False
+    st.info(
+        "Sector labels are not built yet, so everything would show as Unclassified. "
+        "Go to **Run updates** and click **Build sector labels** (one time, about 10 minutes)."
+    )
+    return True
+
+
+def _screener_sectors(d: dict) -> None:
+    if _need_sector_map():
+        return
+    summary, stocks = sector.screen_sectors(d["universe"])
+    st.caption(sector.SCREEN_NOTE)
+    if d["early"]:
+        st.warning(
+            "EARLY LOOK: this sector picture will change as more filings arrive."
+        )
+    st.dataframe(_sector_table(summary), hide_index=True, width="stretch")
+    pick = st.selectbox(
+        "See the stocks in a sector",
+        list(summary["Sector"]),
+        index=None,
+        placeholder="Choose a sector",
+        key="screen_sector_pick",
+    )
+    if pick:
+        part = stocks[stocks["Sector"] == pick][
+            ["Ticker", "Issuer", "Before", "Now", "Change", "Direction"]
+        ].sort_values("Change", ascending=False)
+        st.dataframe(
+            _styled(part), hide_index=True, width="stretch", height=TABLE_HEIGHT
+        )
+
+
+def _filer_sectors(holdings: pd.DataFrame) -> None:
+    if _need_sector_map():
+        return
+    summary, moves = sector.filer_sectors(holdings)
+    st.caption(sector.FILER_NOTE)
+    if summary.empty:
+        st.info("No position moves to summarise (no previous quarter to compare with).")
+        return
+    st.dataframe(_sector_table(summary), hide_index=True, width="stretch")
+    pick = st.selectbox(
+        "Who is adding or trimming in a sector? Pick one",
+        list(summary["Sector"]),
+        index=None,
+        placeholder="Choose a sector",
+        key="filer_sector_pick",
+    )
+    if not pick:
+        return
+    part = moves[moves["Sector"] == pick]
+    for label, names in (
+        ("Adding (opened or added to)", ["Opened", "Added to"]),
+        ("Trimming (trimmed or sold out)", ["Trimmed", "Sold out"]),
+    ):
+        sub = part[part["Move"].isin(names)]
+        with st.expander(f"{label}: {sub['Filer'].nunique()} filer(s)"):
+            if sub.empty:
+                st.caption("None of your filers.")
+                continue
+            by_filer = (
+                sub.groupby("Filer")
+                .agg(
+                    Stocks=("Stock", lambda x: ", ".join(sorted(set(x))[:12])),
+                    Moves=("Stock", "size"),
+                )
+                .reset_index()
+                .sort_values("Moves", ascending=False)
+            )
+            st.dataframe(by_filer, hide_index=True, width="stretch")
 
 
 MOVES = (
@@ -535,9 +632,11 @@ def tab_filers() -> None:
         )
     if d["missing"]:
         st.caption("No workbook for: " + "; ".join(d["missing"]))
-    summary, stocks, buys, sells = st.tabs(
-        ["Filer summary", "By stock", "Top buys", "Top sells"]
+    summary, stocks, buys, sells, secs = st.tabs(
+        ["Filer summary", "By stock", "Top buys", "Top sells", "By sector"]
     )
+    with secs:
+        _filer_sectors(d["all_holdings"])
     with summary:
         st.dataframe(d["summary"], hide_index=True, width="stretch")
     with stocks:
@@ -573,16 +672,17 @@ def tab_filers() -> None:
         st.dataframe(d["top_sells"], hide_index=True, width="stretch")
     with st.expander("Notes"):
         st.dataframe(d["notes"], hide_index=True, width="stretch")
-    data = _xlsx(
-        {
-            "Filer summary": d["summary"],
-            "By stock": d["stocks"],
-            "Top buys": d["top_buys"],
-            "Top sells": d["top_sells"],
-            "All holdings": d["all_holdings"],
-            "Notes": d["notes"],
-        }
-    )
+    sheets = {
+        "Filer summary": d["summary"],
+        "By stock": d["stocks"],
+        "Top buys": d["top_buys"],
+        "Top sells": d["top_sells"],
+    }
+    if sector.load_map():
+        sheets["By sector"] = sector.filer_sectors(d["all_holdings"])[0]
+    sheets["All holdings"] = d["all_holdings"]
+    sheets["Notes"] = d["notes"]
+    data = _xlsx(sheets)
     label = period or ("Combined" if len(d["periods"]) > 1 else d["periods"][0])
     c1, c2 = st.columns(2)
     c1.download_button(
@@ -694,6 +794,10 @@ def tab_updates(has_identity: bool) -> None:
         live_check = st.button("Live vs SEC data set check")
         st.markdown("**SEC bulk data set**")
         build = st.button("Build bulk index (after adding a new ZIP)")
+        build_sectors = st.button(
+            "Build sector labels (one time)",
+            help="Looks up each stock's industry on SEC. About 10 minutes the first time.",
+        )
 
     with jobs:
         if run_all:
@@ -740,6 +844,14 @@ def tab_updates(has_identity: bool) -> None:
                 "Live vs SEC check",
                 "thirteenf_processor.live",
                 ["--compare", *live_args],
+                True,
+                has_identity,
+            )
+        elif build_sectors:
+            run_job(
+                "Build sector labels",
+                "thirteenf_processor.sector",
+                ["--build"],
                 True,
                 has_identity,
             )

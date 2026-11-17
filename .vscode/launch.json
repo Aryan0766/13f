@@ -97,6 +97,21 @@
       "console": "integratedTerminal"
     },
     {
+      "name": "13F: Build sector labels (one time)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "thirteenf_processor.sector",
+      "args": [
+        "--build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal"
+    },
+    {
       "name": "13F: Open as website (Chrome tab)",
       "type": "debugpy",
       "request": "launch",

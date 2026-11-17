@@ -641,6 +641,7 @@ def screen_data(include_funds: bool = False, early: bool = False) -> dict:
         "hidden": hidden,
         "cohort_n": cohort_n,
         "scale": scale,
+        "universe": t,
         "gainers": gainers,
         "losers": losers,
         "streaks": streaks,
