@@ -90,9 +90,14 @@ def _prep(table: pd.DataFrame) -> pd.DataFrame:
 def filer_summary(t: pd.DataFrame, used: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for u in used.to_dict("records"):
-        f = t[t["Filer"] == u["Filer"]]
+        allrows = t[t["Filer"] == u["Filer"]]
+        # Shares and options are kept apart: a fund with huge option books would otherwise
+        # bury its real stock moves (and its option value would swamp "Total value").
+        f = allrows[allrows["PutCall"] == ""]
+        opts = allrows[allrows["PutCall"] != ""]
         held = f[f["Held"]]
         status = f["Status"].value_counts()
+        ostatus = opts["Status"].value_counts()
         total = held["Value"].sum()
         top = held.sort_values("Value", ascending=False).head(1)
         top_name = ""
@@ -118,6 +123,14 @@ def filer_summary(t: pd.DataFrame, used: pd.DataFrame) -> pd.DataFrame:
                 "Decreased": int(status.get("DECREASED", 0)),
                 "Biggest holding": top_name,
                 "Biggest holding %": top_pct,
+                "Option positions": int(opts["Held"].sum()),
+                "Option value": opts.loc[opts["Held"], "Value"].sum(),
+                "Options added": int(
+                    ostatus.get("NEW", 0) + ostatus.get("INCREASED", 0)
+                ),
+                "Options trimmed": int(
+                    ostatus.get("DECREASED", 0) + ostatus.get("CLOSED", 0)
+                ),
             }
         )
     return pd.DataFrame(rows)
@@ -230,6 +243,15 @@ def build_tables(period: str | None = None) -> dict:
             "How many of your filers did that versus their own previous quarter.",
         ),
         ("Net buyers", "Opened + Added to - Trimmed - Sold out."),
+        (
+            "Filer summary: stocks vs options",
+            (
+                "Positions, Total value, New/Closed/Increased/Decreased and Biggest "
+                "holding count shares only. Calls and puts are listed separately in the "
+                "Option columns (Option value is the reported value of the underlying "
+                "shares, not money spent)."
+            ),
+        ),
         (
             "Total value",
             "Sum of the reported position values of the filers holding it (dollars).",

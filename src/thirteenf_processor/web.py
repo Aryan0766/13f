@@ -437,6 +437,71 @@ def _combined(period: str | None, stamp: float) -> dict:
     return combine.build_tables(period)
 
 
+MOVES = (
+    ("NEW", "Opened (new position)"),
+    ("INCREASED", "Added to"),
+    ("DECREASED", "Trimmed"),
+    ("CLOSED", "Sold out"),
+)
+
+
+def _filed_on(filer: str, period: str) -> str:
+    """Filing date of the report for this quarter, if the tracker knows it."""
+    state = load_state()
+    for f in load_filers():
+        if f["name"] == filer:
+            entry = state.get(cik_key(f["cik"]))
+            if entry and entry["period"] == period:
+                return str(entry["filing_date"])
+    return ""
+
+
+def _who_moved(holdings: pd.DataFrame, row: pd.Series) -> None:
+    """Dropdowns listing which of your filers opened / added / trimmed / sold out one stock."""
+    h = holdings
+    if "PutCall" in h.columns:
+        h = h[h["PutCall"].fillna("").astype(str) == ""]  # options are not counted
+    if row["Ticker"]:
+        h = h[h["Ticker"].fillna("").astype(str) == row["Ticker"]]
+    else:
+        h = h[h["Issuer"].fillna("").astype(str) == row["Issuer"]]
+    if h.empty or "Status" not in h.columns:
+        st.caption("No per-filer detail for this stock.")
+        return
+    for status, label in MOVES:
+        part = h[h["Status"].fillna("") == status]
+        with st.expander(f"{label}: {len(part)} filer(s)"):
+            if part.empty:
+                st.caption("None of your filers.")
+                continue
+            prev = part.get("PrevShares", pd.Series(float("nan"), index=part.index))
+            now = part["Shares"].fillna(0)
+            out = pd.DataFrame(
+                {
+                    "Filer": part["Filer"],
+                    "Person": part.get("Person", ""),
+                    "Shares before": prev,
+                    "Shares now": now,
+                    "Change": now - prev.fillna(0),
+                }
+            ).sort_values("Change", key=abs, ascending=False)
+            if status == "CLOSED":
+                # 13F is a quarter-end snapshot, so the sale happened between these two dates
+                out["Held at"] = part.get("PrevPeriod", "")
+                out["Gone by"] = part.get("Period", "")
+                out["Reported on"] = [
+                    _filed_on(f, per) for f, per in zip(part["Filer"], out["Gone by"])
+                ]
+            fmt = {
+                "Shares before": "{:,.0f}",
+                "Shares now": "{:,.0f}",
+                "Change": "{:+,.0f}",
+            }
+            st.dataframe(
+                out.style.format(fmt, na_rep="-"), hide_index=True, width="stretch"
+            )
+
+
 def tab_filers() -> None:
     st.subheader(f"My {len(load_filers())} filers")
     st.markdown("**Filing tracker**")
@@ -488,7 +553,20 @@ def tab_filers() -> None:
                 frame["Issuer"].astype(str).str.lower().str.contains(find, regex=False)
             )
             frame = frame[hit]
-        st.dataframe(frame, hide_index=True, width="stretch")
+        st.dataframe(frame, hide_index=True, width="stretch", height=TABLE_HEIGHT)
+        if not frame.empty:
+            labels = [
+                f"{r.Ticker or '-'}  {r.Issuer}" for r in frame.head(500).itertuples()
+            ]
+            pick = st.selectbox(
+                "Who added or dropped a stock? Pick one",
+                range(len(labels)),
+                format_func=lambda i: labels[i],
+                index=None,
+                placeholder="Choose a stock (type to search)",
+            )
+            if pick is not None:
+                _who_moved(d["all_holdings"], frame.iloc[pick])
     with buys:
         st.dataframe(d["top_buys"], hide_index=True, width="stretch")
     with sells:
@@ -590,6 +668,10 @@ def tab_updates(has_identity: bool) -> None:
     with a:
         st.markdown("**Download my filers**")
         run_all = st.button("Run ALL filers (newest quarter)")
+        rebuild_all = st.button(
+            "Rebuild ALL workbooks",
+            help="Re-makes the Excel files you already have (e.g. after a layout fix).",
+        )
         refresh = st.button("Refresh tracker only")
         pick = st.selectbox(
             "One filer",
@@ -617,6 +699,14 @@ def tab_updates(has_identity: bool) -> None:
         if run_all:
             run_job(
                 "Run ALL filers", "thirteenf_processor", ["--all"], True, has_identity
+            )
+        elif rebuild_all:
+            run_job(
+                "Rebuild ALL workbooks",
+                "thirteenf_processor",
+                ["--all", "--rebuild"],
+                True,
+                has_identity,
             )
         elif refresh:
             run_job(

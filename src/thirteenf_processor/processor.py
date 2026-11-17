@@ -105,10 +105,24 @@ def build_table(report) -> tuple[pd.DataFrame, bool]:
     return table, has_previous
 
 
+def is_option(table: pd.DataFrame) -> pd.Series:
+    """True for call/put rows. Their 'shares' are the underlying shares of the contracts."""
+    if "PutCall" not in table.columns:
+        return pd.Series(False, index=table.index)
+    return table["PutCall"].fillna("").astype(str).str.strip() != ""
+
+
 def build_new_closed(table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    new = table[table["Status"] == "NEW"].sort_values("Value", ascending=False)
-    closed = table[table["Status"] == "CLOSED"].sort_values(
-        "PrevValue", ascending=False
+    opt = is_option(table)  # shares first, calls/puts after, each biggest first
+    new = (
+        table[table["Status"] == "NEW"]
+        .assign(_opt=opt)
+        .sort_values(["_opt", "Value"], ascending=[True, False])
+    )
+    closed = (
+        table[table["Status"] == "CLOSED"]
+        .assign(_opt=opt)
+        .sort_values(["_opt", "PrevValue"], ascending=[True, False])
     )
     ids = [c for c in ID_COLUMNS if c in table.columns]
     return (
@@ -117,16 +131,21 @@ def build_new_closed(table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
 
 
-def build_top_changes(table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_top_changes(
+    table: pd.DataFrame, options: bool = False
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Top increases / decreases among positions held in both quarters.
 
     Ranked by estimated trade size = share change x this quarter's implied price,
-    so price moves don't distort the ranking.
+    so price moves don't distort the ranking. Shares and options are listed
+    separately (options = calls/puts, whose 'shares' are the underlying shares).
     """
-    both = table[table["Status"].isin(["INCREASED", "DECREASED"])].copy()
+    both = table[
+        table["Status"].isin(["INCREASED", "DECREASED"]) & (is_option(table) == options)
+    ].copy()
     price = (both["Value"] / both["Shares"]).replace([np.inf, -np.inf], np.nan)
     both["EstTradeValue"] = both["ShareChange"] * price
-    cols = [c for c in ["Ticker", "Issuer"] if c in both.columns] + [
+    cols = [c for c in ["Ticker", "Issuer", "PutCall"] if c in both.columns] + [
         "Shares",
         "PrevShares",
         "ShareChange",
@@ -147,7 +166,10 @@ def summary_rows(table: pd.DataFrame, meta: dict, has_previous: bool) -> list[tu
     ]
     if meta.get("total_value"):
         rows.append(
-            ("Total value reported by SEC (this quarter)", float(meta["total_value"]))
+            (
+                "Total value reported by SEC (this quarter, includes options)",
+                float(meta["total_value"]),
+            )
         )
 
     if not has_previous:
@@ -157,14 +179,20 @@ def summary_rows(table: pd.DataFrame, meta: dict, has_previous: bool) -> list[tu
         rows.append(("Positions", len(table)))
         return rows
 
-    counts = table["Status"].value_counts()
-    value_now = float(table["Value"].sum())
-    value_prev = float(table["PrevValue"].sum())
+    opt = is_option(table)
+    stocks, options = (
+        table[~opt],
+        table[opt],
+    )  # kept apart so option books don't skew it
+    counts = stocks["Status"].value_counts()
+    value_now = float(stocks["Value"].sum())
+    value_prev = float(stocks["PrevValue"].sum())
     rows += [
         ("Compared with", str(table["PrevPeriod"].iloc[0])),
+        ("Stocks only", "Calls and puts are counted separately, below."),
         ("", ""),
-        ("Positions this quarter", int(table["Shares"].notna().sum())),
-        ("Positions last quarter", int(table["PrevShares"].notna().sum())),
+        ("Positions this quarter", int(stocks["Shares"].notna().sum())),
+        ("Positions last quarter", int(stocks["PrevShares"].notna().sum())),
         ("New positions", int(counts.get("NEW", 0))),
         ("Closed positions", int(counts.get("CLOSED", 0))),
         ("Increased positions", int(counts.get("INCREASED", 0))),
@@ -175,6 +203,26 @@ def summary_rows(table: pd.DataFrame, meta: dict, has_previous: bool) -> list[tu
         ("Sum of position values, last quarter", value_prev),
         ("Change %", (value_now / value_prev - 1) * 100 if value_prev else None),
     ]
+    if not options.empty:
+        oc = options["Status"].value_counts()
+        rows += [
+            ("", ""),
+            (
+                "Options (calls and puts)",
+                "Value is the underlying shares' value, not money spent.",
+            ),
+            ("Option positions this quarter", int(options["Shares"].notna().sum())),
+            ("Option positions last quarter", int(options["PrevShares"].notna().sum())),
+            ("New option positions", int(oc.get("NEW", 0))),
+            ("Closed option positions", int(oc.get("CLOSED", 0))),
+            ("Increased option positions", int(oc.get("INCREASED", 0))),
+            ("Decreased option positions", int(oc.get("DECREASED", 0))),
+            ("Option underlying value, this quarter", float(options["Value"].sum())),
+            (
+                "Option underlying value, last quarter",
+                float(options["PrevValue"].sum()),
+            ),
+        ]
     return rows
 
 
@@ -262,11 +310,31 @@ def write_workbook(
             up, down = build_top_changes(table)
             nxt = 3 + len(rows) + 1  # 0-based row after the key/value block
             nxt = _write_section(
-                xw, "Summary", f"Top {TOP_N} increases (est. trade size)", up, nxt
+                xw, "Summary", f"Top {TOP_N} stock increases (est. trade size)", up, nxt
             )
-            _write_section(
-                xw, "Summary", f"Top {TOP_N} decreases (est. trade size)", down, nxt
+            nxt = _write_section(
+                xw,
+                "Summary",
+                f"Top {TOP_N} stock decreases (est. trade size)",
+                down,
+                nxt,
             )
+            oup, odown = build_top_changes(table, options=True)
+            if not oup.empty or not odown.empty:
+                nxt = _write_section(
+                    xw,
+                    "Summary",
+                    f"Top {TOP_N} OPTION increases (calls/puts)",
+                    oup,
+                    nxt,
+                )
+                _write_section(
+                    xw,
+                    "Summary",
+                    f"Top {TOP_N} OPTION decreases (calls/puts)",
+                    odown,
+                    nxt,
+                )
 
         for sheet in xw.sheets.values():
             _autosize(sheet)
@@ -372,7 +440,7 @@ def check_listed_name(filer: str, company_name: str) -> None:
 # --------------------------------------------------------------------------- run
 
 
-def process(filer: str, quarters: int) -> list[Path]:
+def process(filer: str, quarters: int, rebuild: bool = False) -> list[Path]:
     from edgar import Company, set_identity  # imported late: see configure_environment
 
     set_identity(os.environ["EDGAR_IDENTITY"])
@@ -416,7 +484,7 @@ def process(filer: str, quarters: int) -> list[Path]:
                 "file": str(out.relative_to(PROJECT_ROOT)),
             }
 
-        if out.exists():
+        if out.exists() and not rebuild:
             next_end, due = next_filing_window(period)
             log.info(
                 "Already up to date: %s filed %s for period %s (%s). "
@@ -464,14 +532,14 @@ def process(filer: str, quarters: int) -> list[Path]:
     return written
 
 
-def run_all() -> int:
+def run_all(rebuild: bool = False) -> int:
     """Run every filer in filers.json (latest quarter). Failures don't stop the batch."""
     filers = load_filers()
     new, skipped, failed = [], [], []
     for n, f in enumerate(filers, start=1):
         log.info("=== [%d/%d] %s ===", n, len(filers), f["name"])
         try:
-            written = process(f["cik"], 1)
+            written = process(f["cik"], 1, rebuild)
             (new if written else skipped).append(f["name"])
         except SystemExit as exc:
             failed.append((f["name"], str(exc.code)))
@@ -505,6 +573,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--tracker-only", action="store_true", help="Refresh Tracker.xlsx, no downloads"
     )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Re-make workbooks that already exist (use after the Excel layout changes)",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -518,6 +591,6 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_environment()
     if args.all:
-        return run_all()
-    process(args.filer, max(1, args.quarters))
+        return run_all(args.rebuild)
+    process(args.filer, max(1, args.quarters), args.rebuild)
     return 0
