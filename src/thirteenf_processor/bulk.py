@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
+from . import sector
 from .processor import PROJECT_ROOT, _autosize
 
 BULK_DIR = PROJECT_ROOT / "data" / "sec_bulk"
@@ -690,11 +691,14 @@ def screen(include_funds: bool = False, early: bool = False) -> int:
     out = SCREEN_DIR / f"holder_screen_{'early_' if early else ''}{latest}.xlsx"
     try:
         with pd.ExcelWriter(out, engine="openpyxl") as xw:
-            for title, frame in (
+            sheets = [
                 ("Gainers", gainers),
                 ("Losers", losers),
                 (f"Rising {STREAK_MIN}+ qtrs", streaks),
-            ):
+            ]
+            if sector.load_map():
+                sheets.append(("By sector", sector.screen_sectors(d["universe"])[0]))
+            for title, frame in sheets:
                 frame.to_excel(xw, sheet_name=title, index=False)
                 _autosize(xw.sheets[title])
                 xw.sheets[title].freeze_panes = "A2"

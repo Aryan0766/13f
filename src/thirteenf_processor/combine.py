@@ -16,6 +16,7 @@ import re
 
 import pandas as pd
 
+from . import sector
 from .processor import (
     OUTPUT_DIR,
     PROJECT_ROOT,
@@ -87,7 +88,18 @@ def _prep(table: pd.DataFrame) -> pd.DataFrame:
     return t
 
 
+def _biggest_sector(held: pd.DataFrame) -> tuple[str, float | None]:
+    """Sector holding the most of this filer's stock value (classified sectors only)."""
+    by = sector.add_sector(held).groupby("Sector")["Value"].sum()
+    total = by.sum()
+    by = by.drop(sector.UNCLASSIFIED, errors="ignore")
+    if by.empty or not total:
+        return "", None
+    return str(by.idxmax()), float(by.max() / total * 100)
+
+
 def filer_summary(t: pd.DataFrame, used: pd.DataFrame) -> pd.DataFrame:
+    labelled = bool(sector.load_map())
     rows = []
     for u in used.to_dict("records"):
         allrows = t[t["Filer"] == u["Filer"]]
@@ -123,6 +135,16 @@ def filer_summary(t: pd.DataFrame, used: pd.DataFrame) -> pd.DataFrame:
                 "Decreased": int(status.get("DECREASED", 0)),
                 "Biggest holding": top_name,
                 "Biggest holding %": top_pct,
+                **(
+                    dict(
+                        zip(
+                            ("Biggest sector", "Biggest sector %"),
+                            _biggest_sector(held),
+                        )
+                    )
+                    if labelled
+                    else {}
+                ),
                 "Option positions": int(opts["Held"].sum()),
                 "Option value": opts.loc[opts["Held"], "Value"].sum(),
                 "Options added": int(
@@ -202,6 +224,12 @@ def build_tables(period: str | None = None) -> dict:
     periods = sorted(set(used["Period"]))
     summary = filer_summary(t, used)
     stocks = by_stock(t).drop(columns=["Key"])
+    if sector.load_map():
+        stocks = sector.add_sector(stocks)
+        order = list(stocks.columns)
+        order.remove("Sector")
+        order.insert(order.index("Issuer") + 1, "Sector")
+        stocks = stocks[order]
     # Buying/selling lists only make sense for filers that have a previous quarter to compare with
     moves = stocks[
         (
@@ -296,6 +324,8 @@ def combine(period: str | None = None) -> int:
             _tab(xw, "By stock", d["stocks"])
             _tab(xw, "Top buys", d["top_buys"])
             _tab(xw, "Top sells", d["top_sells"])
+            if sector.load_map():
+                _tab(xw, "By sector", sector.filer_sectors(d["all_holdings"])[0])
             _tab(xw, "All holdings", d["all_holdings"])
             d["notes"].to_excel(xw, sheet_name="Notes", index=False)
             _autosize(xw.sheets["Notes"])
