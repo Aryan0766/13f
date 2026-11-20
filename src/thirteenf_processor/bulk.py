@@ -43,6 +43,36 @@ FUND_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Issuers that are really a trust or fund family: the filing names the family (for example
+# "ISHARES TR"), and the actual fund is in the "title of class" column.
+FAMILY_PATTERN = re.compile(
+    r"\b(?:TR|TRUST|TRUSTS|SERIES|PORTFOLIOS?|ETF|ETFS|ETN|FUND|FUNDS|FDS|ISHARES|SPDR|"
+    r"PROSHARES|DIREXION|VANECK|WISDOMTREE|INVESCO|VANGUARD|SCHWAB|ARK)\b",
+    re.IGNORECASE,
+)
+# Share-class words that say nothing about which fund it is ("COM", "CL A", "SHS" ...).
+GENERIC_CLASS = re.compile(
+    r"^(?:COM(?:MON)?(?: STOCK| SHS| SHARES| NEW)?|CL(?:ASS)? [A-Z0-9]+(?: COM| SHS)?|"
+    r"SHS|SHARES|ORD(?:INARY)?(?: SHS)?|(?:UN)?SPONSORED ADR|ADR|NEW|UNITS?|SH BEN INT|"
+    r"BEN INT)$",
+    re.IGNORECASE,
+)
+
+
+def display_name(issuer, title_class) -> str:
+    """Issuer name, plus the fund name from 'title of class' when the issuer is a fund family."""
+    issuer = "" if pd.isna(issuer) else str(issuer).strip()
+    cls = "" if pd.isna(title_class) else str(title_class).strip()
+    if (
+        cls
+        and FAMILY_PATTERN.search(issuer)
+        and not GENERIC_CLASS.match(cls)
+        and cls.upper() not in issuer.upper()
+    ):
+        return f"{issuer} - {cls}"
+    return issuer
+
+
 KEEP_PERIODS = 5  # a year of quarters plus one earlier quarter for the oldest change
 MIN_FILINGS_PER_PERIOD = 20  # ignore stray late filings for old periods
 PARTIAL_BELOW = 0.90  # a quarter with <90% of the biggest quarter's filers is "partial"
@@ -173,7 +203,13 @@ def build_index() -> int:
                 f,
                 sep="\t",
                 dtype=str,
-                usecols=["ACCESSION_NUMBER", "NAMEOFISSUER", "CUSIP", "PUTCALL"],
+                usecols=[
+                    "ACCESSION_NUMBER",
+                    "NAMEOFISSUER",
+                    "TITLEOFCLASS",
+                    "CUSIP",
+                    "PUTCALL",
+                ],
                 chunksize=1_000_000,
             )
             for ch in reader:
@@ -182,7 +218,9 @@ def build_index() -> int:
                 ch = ch[ch["ACCESSION_NUMBER"].isin(mine["ACCESSION_NUMBER"])]
                 ch = ch[ch["PUTCALL"].isna()]  # equity positions only, no options
                 name_parts.append(
-                    ch.groupby(["CUSIP", "NAMEOFISSUER"]).size().reset_index(name="n")
+                    ch.groupby(["CUSIP", "NAMEOFISSUER", "TITLEOFCLASS"], dropna=False)
+                    .size()
+                    .reset_index(name="n")
                 )
                 ch = ch.merge(
                     mine[["ACCESSION_NUMBER", "CIK", "period"]], on="ACCESSION_NUMBER"
@@ -196,11 +234,16 @@ def build_index() -> int:
 
     names = (
         pd.concat(name_parts)
-        .groupby(["CUSIP", "NAMEOFISSUER"], as_index=False)["n"]
+        .groupby(
+            ["CUSIP", "NAMEOFISSUER", "TITLEOFCLASS"], as_index=False, dropna=False
+        )["n"]
         .sum()
     )
     names = names.sort_values("n", ascending=False).drop_duplicates("CUSIP")
-    names = names.rename(columns={"NAMEOFISSUER": "Issuer"})[["CUSIP", "Issuer"]]
+    names["Issuer"] = [
+        display_name(i, c) for i, c in zip(names["NAMEOFISSUER"], names["TITLEOFCLASS"])
+    ]
+    names = names[["CUSIP", "Issuer"]]
 
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     holders.to_parquet(INDEX_DIR / "holders.parquet", index=False)
@@ -596,6 +639,19 @@ def screen_data(include_funds: bool = False, early: bool = False) -> dict:
         ["Streak", "Change"], ascending=False
     )
     gainers, losers, streaks = (x.head(TOP_N) for x in (gainers, losers, streaks))
+    if sector.load_map():  # label the lists with each stock's sector, next to the name
+
+        def labelled(frame: pd.DataFrame) -> pd.DataFrame:
+            out = sector.add_sector(frame)
+            order = [c for c in out.columns if c != "Sector"]
+            order.insert(order.index("Issuer") + 1, "Sector")
+            return out[order]
+
+        gainers, losers, streaks = (
+            labelled(gainers),
+            labelled(losers),
+            labelled(streaks),
+        )
 
     live_note = (
         f"Quarter(s) {', '.join(sorted(live_periods & {latest, prev}))} come from live EDGAR "
