@@ -10,3 +10,6 @@ data/output/*
 data/sec_bulk/*
 data/index/*
 data/live/*
+data/state.json
+.streamlit/secrets.toml
+.DS_Store
