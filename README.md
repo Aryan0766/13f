@@ -11,14 +11,7 @@ Download and explore SEC Form 13F filings (what big institutional investors hold
 - **My filers:** one Excel workbook per filer from `filers.json` (holdings, new and closed positions, summary), a filing tracker, and a combined view across all of them with top buys, top sells and sectors.
 - **Live quarter:** newest-quarter data straight from EDGAR, before the SEC publishes its data set.
 
-## Privacy: what is NOT shared on GitHub
 
-The `.gitignore` keeps these on your computer only:
-
-- `.env` (your name and email for the SEC), and `.venv/` (your Python environment)
-- everything under `data/` (downloaded filings, the index, outputs, sector labels, `state.json`)
-
-Only the code, `filers.json` (public investor names and CIKs), `.env.example` (a placeholder) and the VS Code settings are meant to be shared. Before you push, check the changed-files list in VS Code's Source Control panel: `.env` and `.venv` must not appear. Note that Git also stamps your commits with your git email, which is public on GitHub. In GitHub, turn on **Keep my email address private** and use the noreply address it gives you.
 
 ## One-time setup (all clicks, no commands)
 
