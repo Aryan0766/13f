@@ -1,6 +1,9 @@
 @echo off
 rem Double-click to open the 13F Tracker in your browser. Close this window to stop it.
-cd /d "%~dp0"
+rem Optional: if you copy this file elsewhere (for example the Desktop), put the project folder here.
+set "PROJ="
+if not defined PROJ set "PROJ=%~dp0"
+cd /d "%PROJ%"
 set "PY="
 if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
 if not defined PY if exist "venv\Scripts\python.exe" set "PY=venv\Scripts\python.exe"
@@ -15,6 +18,13 @@ if not defined PY (
   pause
   exit /b 1
 )
+if not exist "src\thirteenf_processor\web.py" (
+  echo [PROBLEM] Could not find the project at: %CD%
+  echo Edit the PROJ line at the top of this file to point to your thirteenf-processor folder.
+  pause
+  exit /b 1
+)
+echo Project: %CD%
 echo Using: %PY%
 "%PY%" -c "import streamlit" 2>nul
 if errorlevel 1 (
